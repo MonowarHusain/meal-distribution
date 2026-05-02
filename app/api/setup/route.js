@@ -28,13 +28,16 @@ export async function GET() {
           Name VARCHAR(255) NOT NULL,
           Email VARCHAR(255) UNIQUE NOT NULL,
           Password VARCHAR(255) NOT NULL,
-          Phone VARCHAR(20) NOT NULL
+          Phone VARCHAR(20) NOT NULL,
+          Street VARCHAR(255) DEFAULT '',
+          Road VARCHAR(255) DEFAULT '',
+          House VARCHAR(255) DEFAULT '',
+          Role ENUM('Admin', 'Kitchen', 'Delivery', 'Customer') DEFAULT 'Customer'
       )
     `);
-
         await pool.query(`
-      INSERT IGNORE INTO Customer (CustomerID, Name, Email, Password, Phone) VALUES
-      (1, 'Monowar Husain Omi', 'omi@bracu.edu.bd', 'hashedpass', '01711111111')
+      INSERT IGNORE INTO Customer (CustomerID, Name, Email, Password, Phone, Role) VALUES
+      (1, 'Monowar Husain Omi', 'omi@bracu.edu.bd', 'hashedpass', '01711111111', 'Admin')
     `);
 
         // 3. Create the Order Tables
@@ -65,9 +68,21 @@ export async function GET() {
       CREATE TABLE IF NOT EXISTS Order_History (
           HistoryID INT AUTO_INCREMENT PRIMARY KEY,
           OrderID INT NOT NULL,
-          Status ENUM('Pending', 'Kitchen_Accepted', 'Dispatched', 'Delivered', 'Refused') DEFAULT 'Pending',
+          Status ENUM('Pending', 'Kitchen_Accepted', 'Cooking_Done', 'Dispatched', 'Delivered', 'Refused') DEFAULT 'Pending',
           Status_Date DATETIME DEFAULT CURRENT_TIMESTAMP,
           FOREIGN KEY (OrderID) REFERENCES \`Order\`(OrderID) ON DELETE CASCADE
+      )
+    `);
+
+        await pool.query(`
+      CREATE TABLE IF NOT EXISTS Payment (
+          Payment_ID INT AUTO_INCREMENT PRIMARY KEY,
+          Order_ID INT NOT NULL,
+          Payment_Method ENUM('Cash On Delivery', 'bKash', 'Card') NOT NULL,
+          Payment_Status ENUM('Pending', 'Completed', 'Failed') DEFAULT 'Pending',
+          Payment_Date DATETIME DEFAULT CURRENT_TIMESTAMP,
+          Amount DECIMAL(10, 2) NOT NULL,
+          FOREIGN KEY (Order_ID) REFERENCES \`Order\`(OrderID) ON DELETE CASCADE
       )
     `);
 

@@ -18,13 +18,13 @@ export default function LoginPage() {
 
     if (data.success) {
       // Save user info for the session
-      localStorage.setItem('user', JSON.stringify(data.user));
+      localStorage.setItem('user', JSON.stringify({ Email: email, Role: data.role, id: data.id }));
       
       // Automatic Role Redirection
-      const role = data.user.Role;
-      if (role === 'Admin') window.location.href = '/admin';
-      else if (role === 'Kitchen') window.location.href = '/kitchen';
-      else if (role === 'Delivery') window.location.href = '/delivery';
+      const role = data.role;
+      if (role === 'admin') window.location.href = '/admin';
+      else if (role === 'kitchen') window.location.href = '/kitchen';
+      else if (role === 'delivery') window.location.href = '/delivery';
       else window.location.href = '/customer'; // User1 & User2
     } else {
       alert("Invalid login. Try admin@mail.com / pass123");
@@ -65,6 +65,10 @@ export default function LoginPage() {
         
         <div className="mt-6 text-center text-xs text-gray-400">
           Demo: Admin, Kitchen, Del1, User1 (Pass: pass123)
+        </div>
+        
+        <div className="mt-4 text-center text-sm text-gray-500 font-medium">
+          Don't have an account? <a href="/signup" className="text-blue-600 hover:underline font-bold">Sign Up</a>
         </div>
       </div>
     </main>

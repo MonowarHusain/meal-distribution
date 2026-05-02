@@ -1,15 +1,15 @@
 import { NextResponse } from 'next/server';
 import pool from '../../../lib/db';
 
-// Get all orders that are currently "Pending"
 export async function GET() {
     try {
         const query = `
-      SELECT o.OrderID, o.Order_Number, o.Total_Price, c.Name as CustomerName, h.Status
+      SELECT o.OrderID, o.Order_Number, o.Total_Price, c.Name as CustomerName, 
+             (SELECT Status FROM Order_History WHERE OrderID = o.OrderID ORDER BY Status_Date DESC LIMIT 1) as LatestStatus
       FROM \`Order\` o
       JOIN Customer c ON o.CustomerID = c.CustomerID
-      JOIN Order_History h ON o.OrderID = h.OrderID
-      WHERE h.Status = 'Pending'
+      HAVING LatestStatus IN ('Pending', 'Kitchen_Accepted')
+      ORDER BY o.Order_Date ASC
     `;
         const [rows] = await pool.query(query);
         return NextResponse.json({ success: true, data: rows });
@@ -18,13 +18,18 @@ export async function GET() {
     }
 }
 
-// Update order status to 'Kitchen_Accepted'
+// Update order status to 'Kitchen_Accepted' or 'Cooking_Done'
 export async function PATCH(request) {
     try {
-        const { orderId } = await request.json();
+        const { orderId, newStatus } = await request.json(); // Accept newStatus from frontend
+        
+        if (!['Kitchen_Accepted', 'Cooking_Done'].includes(newStatus)) {
+           return NextResponse.json({ success: false, error: 'Invalid status update for kitchen' }, { status: 400 });
+        }
+
         await pool.query(
-            'UPDATE Order_History SET Status = ? WHERE OrderID = ?',
-            ['Kitchen_Accepted', orderId]
+            'INSERT INTO Order_History (OrderID, Status) VALUES (?, ?)',
+            [orderId, newStatus]
         );
         return NextResponse.json({ success: true });
     } catch (error) {

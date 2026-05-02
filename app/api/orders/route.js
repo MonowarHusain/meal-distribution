@@ -7,7 +7,7 @@ export async function POST(request) {
 
     try {
         const body = await request.json();
-        const { customerId, items, totalPrice } = body;
+        const { customerId, items, totalPrice, paymentMethod } = body;
 
         // items will come in this format: [{ menuItemId: 1, quantity: 2 }]
 
@@ -35,6 +35,13 @@ export async function POST(request) {
         await connection.query(
             'INSERT INTO Order_History (OrderID, Status) VALUES (?, ?)',
             [orderId, 'Pending']
+        );
+
+        // 4. Insert into Payment table
+        const paymentStatus = paymentMethod === 'Cash On Delivery' ? 'Pending' : 'Completed';
+        await connection.query(
+            'INSERT INTO Payment (Order_ID, Payment_Method, Payment_Status, Amount) VALUES (?, ?, ?, ?)',
+            [orderId, paymentMethod, paymentStatus, totalPrice]
         );
 
         // If everything is fine, commit the transaction to save it to the database
