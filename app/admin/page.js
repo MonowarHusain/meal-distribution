@@ -37,6 +37,8 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     fetchData();
+    const interval = setInterval(fetchData, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleRoleChange = async (customerId, newRole) => {

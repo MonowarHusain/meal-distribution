@@ -50,25 +50,30 @@ export default function Home() {
 
   // Fetch Order History & Profile
   useEffect(() => {
-    if (activeTab === 'orders') {
-      setLoading(true);
-      fetch(`/api/customer/orders?customerId=${customerId}`)
-        .then(res => res.json())
-        .then(data => {
-          if (data.success) setOrderHistory(data.orders);
-          setLoading(false);
-        }).catch(() => setLoading(false));
-    } else if (activeTab === 'profile') {
-      setLoading(true);
-      fetch(`/api/customer/profile?customerId=${customerId}`)
-        .then(res => res.json())
-        .then(data => {
-          if (data.success) setProfile(data.profile);
-          setLoading(false);
-        }).catch(() => setLoading(false));
-    } else {
-      setLoading(false);
-    }
+    const loadData = () => {
+      if (activeTab === 'orders') {
+        fetch(`/api/customer/orders?customerId=${customerId}`)
+          .then(res => res.json())
+          .then(data => {
+            if (data.success) setOrderHistory(data.orders);
+            setLoading(false);
+          }).catch(() => setLoading(false));
+      } else if (activeTab === 'profile') {
+        fetch(`/api/customer/profile?customerId=${customerId}`)
+          .then(res => res.json())
+          .then(data => {
+            if (data.success) setProfile(data.profile);
+            setLoading(false);
+          }).catch(() => setLoading(false));
+      } else {
+        setLoading(false);
+      }
+    };
+    
+    setLoading(true);
+    loadData();
+    const interval = setInterval(loadData, 5000);
+    return () => clearInterval(interval);
   }, [activeTab, customerId]);
 
   // Cart Functions

@@ -39,8 +39,14 @@ export default function KitchenDashboard() {
   };
 
   useEffect(() => {
-    if (activeTab === 'orders') fetchOrders();
-    if (activeTab === 'menu') fetchMenu();
+    const loadData = () => {
+      if (activeTab === 'orders') fetchOrders();
+      if (activeTab === 'menu') fetchMenu();
+    };
+    
+    loadData();
+    const interval = setInterval(loadData, 5000);
+    return () => clearInterval(interval);
   }, [activeTab]);
 
   const updateOrderStatus = async (orderId, newStatus) => {

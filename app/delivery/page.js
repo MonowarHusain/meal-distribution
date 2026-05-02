@@ -21,7 +21,7 @@ export default function DeliveryDashboard() {
 
   useEffect(() => {
     loadTasks();
-    const interval = setInterval(loadTasks, 15000);
+    const interval = setInterval(loadTasks, 5000);
     return () => clearInterval(interval);
   }, []);
 
