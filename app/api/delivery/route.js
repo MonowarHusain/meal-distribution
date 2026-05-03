@@ -27,7 +27,7 @@ export async function GET() {
 
 export async function PATCH(request) {
   try {
-    const { orderId } = await request.json();
+    const { orderId, deliverymanId } = await request.json();
 
     if (!orderId) {
       return NextResponse.json({ success: false, message: 'Order ID is required' }, { status: 400 });
@@ -59,6 +59,24 @@ export async function PATCH(request) {
       'INSERT INTO Order_History (OrderID, Status, Status_Date) VALUES (?, ?, NOW())',
       [orderId, nextStatus]
     );
+
+    // If a deliveryman accepts the order, assign it to them
+    if (nextStatus === 'Dispatched' && deliverymanId) {
+      await pool.query(
+        'UPDATE `Order` SET DeliveryManID = ? WHERE OrderID = ?',
+        [deliverymanId, orderId]
+      );
+    }
+
+    // Auto-confirm Cash On Delivery payments when delivery is completed
+    if (nextStatus === 'Delivered') {
+      await pool.query(
+        `UPDATE Payment 
+         SET Payment_Status = 'Completed' 
+         WHERE Order_ID = ? AND Payment_Method = 'Cash On Delivery'`,
+        [orderId]
+      );
+    }
 
     return NextResponse.json({ success: true, message: `Status updated to ${nextStatus}` });
   } catch (error) {

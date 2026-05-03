@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState('menu'); // 'menu', 'orders', 'profile'
+  const [activeTab, setActiveTab] = useState('menu'); // 'menu', 'orders', 'profile', 'reviews'
   const [menuItems, setMenuItems] = useState([]);
   const [orderHistory, setOrderHistory] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -12,6 +12,14 @@ export default function Home() {
   const [cart, setCart] = useState([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [customerId, setCustomerId] = useState(1);
+  
+  // Review States
+  const [pendingReviews, setPendingReviews] = useState([]);
+  const [myReviews, setMyReviews] = useState([]);
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [currentReviewItem, setCurrentReviewItem] = useState(null);
+  const [reviewData, setReviewData] = useState({ rating: 5, comment: '' });
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
   
   // Payment States
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -65,16 +73,43 @@ export default function Home() {
             if (data.success) setProfile(data.profile);
             setLoading(false);
           }).catch(() => setLoading(false));
+      } else if (activeTab === 'reviews') {
+        fetch(`/api/customer/reviews?customerId=${customerId}&type=history`)
+          .then(res => res.json())
+          .then(data => {
+            if (data.success) setMyReviews(data.data);
+            setLoading(false);
+          }).catch(() => setLoading(false));
       } else {
         setLoading(false);
       }
     };
     
+    const loadPendingReviews = () => {
+      if (!showReviewModal) {
+        const snoozedUntil = localStorage.getItem('reviewSnoozedUntil');
+        if (snoozedUntil && Date.now() < parseInt(snoozedUntil)) {
+          return; // Still snoozed
+        }
+        
+        fetch(`/api/customer/reviews?customerId=${customerId}&type=pending`)
+          .then(res => res.json())
+          .then(data => {
+            if (data.success && data.data.length > 0) {
+              setPendingReviews(data.data);
+              setCurrentReviewItem(data.data[0]);
+              setShowReviewModal(true);
+            }
+          }).catch(() => {});
+      }
+    };
+    
     setLoading(true);
     loadData();
-    const interval = setInterval(loadData, 5000);
+    loadPendingReviews();
+    const interval = setInterval(() => { loadData(); loadPendingReviews(); }, 5000);
     return () => clearInterval(interval);
-  }, [activeTab, customerId]);
+  }, [activeTab, customerId, showReviewModal]);
 
   // Cart Functions
   const addToCart = (item) => {
@@ -142,6 +177,46 @@ export default function Home() {
     setIsSavingProfile(false);
   };
 
+  const dismissReviewPrompt = () => {
+    setShowReviewModal(false);
+    localStorage.setItem('reviewSnoozedUntil', Date.now() + 24 * 60 * 60 * 1000);
+  };
+
+  // Review Submitting
+  const submitReview = async (e) => {
+    e.preventDefault();
+    setIsSubmittingReview(true);
+    try {
+      const res = await fetch('/api/reviews', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customerId,
+          menuItemId: currentReviewItem.MenuItemID,
+          orderId: currentReviewItem.OrderID,
+          rating: reviewData.rating,
+          comment: reviewData.comment
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert("Review submitted! Thank you.");
+        setShowReviewModal(false);
+        setReviewData({ rating: 5, comment: '' });
+        
+        // Refresh menu to update average ratings immediately
+        if (activeTab === 'menu') {
+          fetch('/api/menu').then(r => r.json()).then(d => setMenuItems(d.data));
+        }
+      } else {
+        alert(data.message || "Failed to submit review.");
+      }
+    } catch(err) {
+      alert("Error submitting review.");
+    }
+    setIsSubmittingReview(false);
+  };
+
   // Order Details
   const viewOrderDetails = async (order) => {
     setSelectedOrder(order);
@@ -172,13 +247,13 @@ export default function Home() {
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Customer Dashboard</h1>
           <div className="flex gap-6 mt-4">
-            {['menu', 'orders', 'profile'].map(tab => (
+            {['menu', 'orders', 'profile', 'reviews'].map(tab => (
               <button 
                 key={tab}
                 onClick={() => setActiveTab(tab)}
                 className={`font-bold pb-2 border-b-2 transition capitalize ${activeTab === tab ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-800'}`}
               >
-                {tab === 'menu' ? 'Order Menu' : tab === 'orders' ? 'My Orders' : 'My Profile'}
+                {tab === 'menu' ? 'Order Menu' : tab === 'orders' ? 'My Orders' : tab === 'profile' ? 'My Profile' : 'My Reviews'}
               </button>
             ))}
           </div>
@@ -219,7 +294,11 @@ export default function Home() {
               </span>
               <div className="text-4xl mb-4">{item.Item_Type === 'Premium' ? '⭐' : '🍲'}</div>
               <h2 className="text-xl font-bold text-gray-800">{item.Name}</h2>
-              <span className={`inline-block mt-1 mb-4 text-xs font-bold px-2 py-1 rounded ${item.Item_Type === 'Premium' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-600'}`}>
+              <div className="flex items-center gap-2 mt-1 mb-2">
+                 <span className="text-yellow-500 font-bold">⭐ {parseFloat(item.AvgRating || 0).toFixed(1)}</span>
+                 <span className="text-xs text-gray-400 font-bold">({item.ReviewCount || 0} reviews)</span>
+              </div>
+              <span className={`inline-block mb-4 text-xs font-bold px-2 py-1 rounded ${item.Item_Type === 'Premium' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-600'}`}>
                 {item.Item_Type}
               </span>
               <div className="flex justify-between items-center mt-auto pt-4 border-t border-gray-100">
@@ -311,6 +390,95 @@ export default function Home() {
               {isSavingProfile ? 'Saving...' : 'Save Profile Details'}
             </button>
           </form>
+        </div>
+      )}
+
+      {/* MY REVIEWS TAB */}
+      {!loading && activeTab === 'reviews' && (
+        <div className="space-y-4">
+          <div className="bg-blue-50 border border-blue-200 p-6 rounded-2xl mb-6">
+            <h2 className="text-xl font-bold text-blue-800 mb-2">Your Feedback Matters!</h2>
+            <p className="text-blue-600 font-medium text-sm">Review past orders to help others make better choices.</p>
+          </div>
+          {myReviews.length === 0 ? (
+             <div className="text-center py-12 text-gray-500 font-medium bg-gray-50 rounded-2xl border border-dashed border-gray-300">
+               You haven't left any reviews yet. Complete an order to leave a review!
+             </div>
+          ) : (
+             myReviews.map(review => (
+               <div key={review.ReviewID} className="bg-white border border-gray-200 p-6 rounded-2xl shadow-sm flex flex-col md:flex-row gap-6 hover:shadow-md transition">
+                 <div className="flex-1">
+                   <div className="flex items-center gap-3 mb-2">
+                     <h3 className="font-bold text-gray-900 text-lg">{review.Name}</h3>
+                     <span className="text-yellow-500 font-black tracking-widest">{'⭐'.repeat(review.Rating)}</span>
+                   </div>
+                   <p className="text-sm text-gray-600 italic mb-3 bg-gray-50 p-3 rounded-lg border border-gray-100">"{review.Comment || 'No comment provided.'}"</p>
+                   <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">From Order #{review.Order_Number} • {new Date(review.CreatedAt).toLocaleDateString()}</p>
+                 </div>
+               </div>
+             ))
+          )}
+        </div>
+      )}
+
+      {/* Review Prompt Modal */}
+      {showReviewModal && currentReviewItem && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col transform transition-all scale-100 opacity-100">
+            <div className="p-6 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50 relative overflow-hidden">
+              <div className="absolute top-0 right-0 p-4 opacity-10 text-6xl">⭐</div>
+              <h3 className="font-black text-2xl text-gray-900 mb-1 relative z-10">How was your food?</h3>
+              <p className="text-sm text-gray-600 font-medium relative z-10">Your order has been delivered!</p>
+              <button onClick={dismissReviewPrompt} className="absolute top-4 right-4 text-gray-400 hover:text-red-500 text-3xl font-bold transition z-20">&times;</button>
+            </div>
+            
+            <form onSubmit={submitReview} className="p-6">
+              <div className="flex items-center gap-4 mb-6 p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                 <div className="w-16 h-16 bg-white rounded-xl shadow-sm border border-gray-100 flex items-center justify-center text-3xl">🍲</div>
+                 <div>
+                   <h4 className="font-bold text-gray-900 text-lg">{currentReviewItem.Name}</h4>
+                   <p className="text-xs font-bold text-blue-500 uppercase">Order Ref #{currentReviewItem.OrderID}</p>
+                 </div>
+              </div>
+
+              <div className="mb-6 text-center">
+                <label className="block text-sm font-bold text-gray-800 mb-4 uppercase tracking-wider">Tap to Rate</label>
+                <div className="flex justify-center gap-2">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => setReviewData({ ...reviewData, rating: star })}
+                      className={`text-4xl transition-transform hover:scale-110 active:scale-95 ${reviewData.rating >= star ? 'text-yellow-400' : 'text-gray-200'}`}
+                    >
+                      ★
+                    </button>
+                  ))}
+                </div>
+                <div className="mt-2 text-sm font-bold text-gray-400">
+                  {reviewData.rating === 5 ? 'Excellent!' : reviewData.rating === 4 ? 'Good' : reviewData.rating === 3 ? 'Okay' : reviewData.rating === 2 ? 'Poor' : 'Terrible'}
+                </div>
+              </div>
+
+              <div className="mb-6">
+                <label className="block text-sm font-bold text-gray-800 mb-2">Leave a comment (Optional)</label>
+                <textarea 
+                  value={reviewData.comment}
+                  onChange={(e) => setReviewData({ ...reviewData, comment: e.target.value })}
+                  placeholder="What did you like or dislike?"
+                  className="w-full border border-gray-200 rounded-xl p-4 focus:ring-2 focus:ring-blue-500 outline-none resize-none h-24 bg-gray-50 focus:bg-white transition"
+                ></textarea>
+              </div>
+
+              <button type="submit" disabled={isSubmittingReview} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-4 rounded-xl shadow-[0_4px_14px_0_rgba(37,99,235,0.39)] transition disabled:opacity-50">
+                {isSubmittingReview ? 'Submitting...' : 'Submit Review'}
+              </button>
+              
+              <button type="button" onClick={dismissReviewPrompt} className="w-full mt-3 py-3 text-gray-500 hover:text-gray-700 font-bold transition">
+                Remind me later
+              </button>
+            </form>
+          </div>
         </div>
       )}
 

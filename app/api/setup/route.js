@@ -86,6 +86,22 @@ export async function GET() {
       )
     `);
 
+        await pool.query(`
+      CREATE TABLE IF NOT EXISTS Review (
+          ReviewID INT AUTO_INCREMENT PRIMARY KEY,
+          CustomerID INT NOT NULL,
+          MenuItemID INT NOT NULL,
+          OrderID INT NOT NULL,
+          Rating INT NOT NULL CHECK (Rating >= 1 AND Rating <= 5),
+          Comment TEXT,
+          CreatedAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (CustomerID) REFERENCES Customer(CustomerID) ON DELETE CASCADE,
+          FOREIGN KEY (MenuItemID) REFERENCES MenuItem(MenuItemID) ON DELETE CASCADE,
+          FOREIGN KEY (OrderID) REFERENCES \`Order\`(OrderID) ON DELETE CASCADE,
+          UNIQUE KEY unique_review (OrderID, MenuItemID)
+      )
+    `);
+
         return NextResponse.json({ success: true, message: 'DATABASE READY! All tables and data created.' });
     } catch (error) {
         console.error(error);

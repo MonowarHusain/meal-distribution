@@ -45,8 +45,9 @@ export default function KitchenDashboard() {
     };
     
     loadData();
-    const interval = setInterval(loadData, 5000);
-    return () => clearInterval(interval);
+    // Auto-reload disabled as requested
+    // const interval = setInterval(loadData, 5000);
+    // return () => clearInterval(interval);
   }, [activeTab]);
 
   const updateOrderStatus = async (orderId, newStatus) => {

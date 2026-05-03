@@ -3,7 +3,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 
 export default function SignupPage() {
-  const [formData, setFormData] = useState({ name: '', email: '', password: '', phone: '' });
+  const [formData, setFormData] = useState({ name: '', email: '', password: '', phone: '', house: '', road: '', street: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -70,6 +70,35 @@ export default function SignupPage() {
               placeholder="e.g. +8801700000000"
               onChange={(e) => setFormData({...formData, phone: e.target.value})}
             />
+          </div>
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">House</label>
+              <input 
+                type="text" required
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition"
+                placeholder="e.g. 42B"
+                onChange={(e) => setFormData({...formData, house: e.target.value})}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Road</label>
+              <input 
+                type="text" required
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition"
+                placeholder="e.g. 7"
+                onChange={(e) => setFormData({...formData, road: e.target.value})}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Street/Area</label>
+              <input 
+                type="text" required
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition"
+                placeholder="e.g. Mohakhali"
+                onChange={(e) => setFormData({...formData, street: e.target.value})}
+              />
+            </div>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>

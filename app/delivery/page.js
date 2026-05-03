@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 export default function DeliveryDashboard() {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [riderId, setRiderId] = useState(null);
+  const [riders, setRiders] = useState([]);
 
   const loadTasks = async () => {
     try {
@@ -12,14 +14,28 @@ export default function DeliveryDashboard() {
       if (data.success) {
         setTasks(data.data || []);
       }
+      
+      const ridersRes = await fetch('/api/delivery/riders');
+      const ridersData = await ridersRes.json();
+      if (ridersData.success) {
+        setRiders(ridersData.data || []);
+      }
     } catch (err) {
-      console.error("Failed to load delivery tasks");
+      console.error("Failed to load delivery data");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
+    try {
+      const userStr = localStorage.getItem('user');
+      if (userStr) {
+        const userObj = JSON.parse(userStr);
+        if (userObj.id) setRiderId(userObj.id);
+      }
+    } catch(e) {}
+
     loadTasks();
     const interval = setInterval(loadTasks, 5000);
     return () => clearInterval(interval);
@@ -30,7 +46,7 @@ export default function DeliveryDashboard() {
       const res = await fetch('/api/delivery', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderId: id }),
+        body: JSON.stringify({ orderId: id, deliverymanId: riderId }),
       });
       if (res.ok) loadTasks();
     } catch (err) {}
@@ -41,6 +57,8 @@ export default function DeliveryDashboard() {
     if (status === 'Dispatched') return <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-black uppercase tracking-widest animate-pulse">Out for Delivery</span>;
     return null;
   };
+
+  const isOccupied = riders.find(r => r.CustomerID === riderId)?.Status === 'Occupied';
 
   return (
     <main className="min-h-screen bg-gray-50 font-sans pb-20">
@@ -55,8 +73,24 @@ export default function DeliveryDashboard() {
             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Active Deliveries</p>
           </div>
         </div>
-        <button 
-          onClick={async () => { 
+        
+        <div className="flex items-center gap-6">
+          {/* Active Deliverymen */}
+          <div className="flex flex-wrap items-center gap-3 border-r pr-6 border-gray-100 max-w-lg justify-end">
+            {riders.length === 0 ? (
+              <span className="text-xs font-bold text-gray-400">No riders registered</span>
+            ) : (
+              riders.map(rider => (
+                <div key={rider.CustomerID} className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-full border border-gray-100 shadow-sm hover:shadow transition" title={rider.Status === 'Free' ? 'Available' : 'On Delivery'}>
+                  <span className={`w-3 h-3 rounded-full shadow-sm ${rider.Status === 'Free' ? 'bg-green-500 shadow-green-200 animate-pulse' : 'bg-red-500 shadow-red-200'}`}></span>
+                  <span className="text-xs font-bold text-gray-700">{rider.Name.split(' ')[0]}</span>
+                </div>
+              ))
+            )}
+          </div>
+
+          <button 
+            onClick={async () => { 
             await fetch('/api/logout', { method: 'POST' });
             localStorage.clear(); 
             window.location.href = '/'; 
@@ -65,6 +99,7 @@ export default function DeliveryDashboard() {
         >
           Logout
         </button>
+        </div>
       </nav>
 
       <div className="max-w-xl mx-auto p-6 space-y-6">
@@ -112,13 +147,14 @@ export default function DeliveryDashboard() {
 
                   <button 
                     onClick={() => updateStatus(order.OrderID)}
+                    disabled={order.Status === 'Cooking_Done' && isOccupied}
                     className={`w-full py-4 rounded-2xl font-black text-lg shadow-lg transition transform active:scale-95 ${
                       order.Status === 'Cooking_Done' 
-                      ? 'bg-orange-500 hover:bg-orange-600 text-white shadow-orange-100' 
+                      ? isOccupied ? 'bg-gray-300 text-gray-500 cursor-not-allowed shadow-none' : 'bg-orange-500 hover:bg-orange-600 text-white shadow-orange-100' 
                       : 'bg-green-600 hover:bg-green-700 text-white shadow-green-100'
                     }`}
                   >
-                    {order.Status === 'Cooking_Done' ? 'Confirm Pick Up' : 'Mark as Delivered'}
+                    {order.Status === 'Cooking_Done' ? (isOccupied ? 'Finish current delivery first' : 'Confirm Pick Up') : 'Mark as Delivered'}
                   </button>
                 </div>
               ))}

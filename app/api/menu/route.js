@@ -2,7 +2,14 @@ import { NextResponse } from 'next/server';
 import pool from '../../../lib/db';
 
 export async function GET() {
-  const [rows] = await pool.query('SELECT * FROM MenuItem');
+  const [rows] = await pool.query(`
+    SELECT m.*, 
+           COALESCE(AVG(r.Rating), 0) AS AvgRating, 
+           COUNT(r.ReviewID) AS ReviewCount
+    FROM MenuItem m
+    LEFT JOIN Review r ON m.MenuItemID = r.MenuItemID
+    GROUP BY m.MenuItemID
+  `);
   return NextResponse.json({ success: true, data: rows });
 }
 
