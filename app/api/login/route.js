@@ -3,40 +3,63 @@ import pool from '@/lib/db';
 
 export async function POST(req) {
   try {
-    const { email, password } = await req.json();
+    let body;
+    try {
+      body = await req.json();
+    } catch {
+      return NextResponse.json({ success: false, message: 'Invalid JSON request payload' }, { status: 400 });
+    }
 
-    // 1. Check database (Sample logic - adapt to your specific table structure)
+    const { email, password } = body || {};
+
+    if (!email || !password) {
+      return NextResponse.json({ success: false, message: 'Email and password are required' }, { status: 400 });
+    }
+
+    const trimmedEmail = String(email).trim().toLowerCase();
+
+    // Authenticate user against Customer table
     const [rows] = await pool.query(
-      'SELECT * FROM Customer WHERE Email = ? AND Password = ?',
-      [email, password]
+      'SELECT CustomerID, Name, Email, Phone, Role, Street, Road, House FROM Customer WHERE LOWER(Email) = ? AND Password = ?',
+      [trimmedEmail, String(password)]
     );
 
-    if (rows.length > 0) {
+    if (rows && rows.length > 0) {
       const user = rows[0];
-      
-      // Read the Role directly from the database column we added earlier
-      // If for some reason it's missing, fallback to 'customer'
-      const role = (user.Role || 'customer').toLowerCase();
+      const role = (user.Role || 'Customer').toLowerCase();
 
       const response = NextResponse.json({
         success: true,
         message: 'Login successful',
         role: role,
-        id: user.CustomerID
+        id: user.CustomerID,
+        user: {
+          id: user.CustomerID,
+          name: user.Name,
+          email: user.Email,
+          phone: user.Phone,
+          role: user.Role,
+          street: user.Street,
+          road: user.Road,
+          house: user.House
+        }
       });
 
-      // Set cookie named 'role' so proxy.js can read it correctly
-      response.cookies.set('role', role, { 
-        httpOnly: true, 
+      // Set auth role cookie
+      response.cookies.set('role', role, {
+        httpOnly: true,
         path: '/',
-        maxAge: 60 * 60 * 24 // 1 day
+        maxAge: 60 * 60 * 24, // 1 day
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production'
       });
 
       return response;
     }
 
-    return NextResponse.json({ success: false, message: 'Invalid credentials' }, { status: 401 });
+    return NextResponse.json({ success: false, message: 'Invalid email or password' }, { status: 401 });
   } catch (error) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    console.error('Login API Error:', error);
+    return NextResponse.json({ success: false, error: 'Internal server error', details: error.message }, { status: 500 });
   }
 }

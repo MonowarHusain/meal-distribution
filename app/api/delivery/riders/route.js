@@ -4,7 +4,7 @@ import pool from '@/lib/db';
 export async function GET() {
   try {
     const [rows] = await pool.query(`
-      SELECT c.CustomerID, c.Name,
+      SELECT c.CustomerID, c.Name, c.Email, c.Phone,
         CASE 
           WHEN EXISTS (
             SELECT 1 FROM \`Order\` o 
@@ -15,11 +15,12 @@ export async function GET() {
         END as Status
       FROM Customer c
       WHERE c.Role = 'Delivery'
+      ORDER BY c.CustomerID ASC
     `);
 
-    return NextResponse.json({ success: true, data: rows });
+    return NextResponse.json({ success: true, data: rows || [] });
   } catch (error) {
-    console.error("Delivery Riders API GET Error:", error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    console.error('Delivery Riders API GET Error:', error);
+    return NextResponse.json({ success: false, error: 'Failed to fetch delivery riders', details: error.message }, { status: 500 });
   }
 }

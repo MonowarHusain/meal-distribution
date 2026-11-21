@@ -5,12 +5,12 @@ export async function GET() {
   try {
     // 1. Fetch all users
     const [users] = await pool.query(
-      'SELECT CustomerID, Name, Email, Phone, Role, Street, Road, House FROM Customer ORDER BY CustomerID DESC'
+      'SELECT CustomerID, Name, Email, Phone, Role, Street, Road, House, CreatedAt FROM Customer ORDER BY CustomerID DESC'
     );
 
     // 2. Fetch all orders globally with their latest status
     const [orders] = await pool.query(`
-      SELECT o.OrderID, o.Order_Number, o.Total_Price, o.Order_Date, c.Name as CustomerName,
+      SELECT o.OrderID, o.Order_Number, o.Total_Price, o.Order_Date, c.Name as CustomerName, c.Phone as CustomerPhone,
              COALESCE((SELECT Status FROM Order_History WHERE OrderID = o.OrderID ORDER BY Status_Date DESC LIMIT 1), 'Pending') as Status
       FROM \`Order\` o
       JOIN Customer c ON o.CustomerID = c.CustomerID
@@ -27,77 +27,111 @@ export async function GET() {
     `);
 
     // Calculate revenue based only on Completed payments
-    const totalRevenue = payments
+    const totalRevenue = (payments || [])
       .filter(p => p.Payment_Status === 'Completed')
-      .reduce((sum, p) => sum + parseFloat(p.Amount), 0);
+      .reduce((sum, p) => sum + parseFloat(p.Amount || 0), 0);
 
-    return NextResponse.json({ 
-      success: true, 
-      users, 
-      orders,
-      payments,
+    return NextResponse.json({
+      success: true,
+      users: users || [],
+      orders: orders || [],
+      payments: payments || [],
       stats: {
         totalRevenue: totalRevenue.toFixed(2),
-        totalOrders: orders.length,
-        totalUsers: users.length
+        totalOrders: (orders || []).length,
+        totalUsers: (users || []).length
       }
     });
   } catch (error) {
-    console.error("Admin API Error:", error);
-    return NextResponse.json({ success: false, error: 'Failed to fetch admin data' }, { status: 500 });
+    console.error('Admin API Error:', error);
+    return NextResponse.json({ success: false, error: 'Failed to fetch admin data', details: error.message }, { status: 500 });
   }
 }
 
 export async function PATCH(request) {
   try {
-    const body = await request.json();
-    
-    // Check if this is a role update
-    if (body.customerId && body.newRole) {
-      await pool.query(
-        'UPDATE Customer SET Role = ? WHERE CustomerID = ?',
-        [body.newRole, body.customerId]
-      );
+    let body;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ success: false, message: 'Invalid JSON payload' }, { status: 400 });
+    }
+
+    const { customerId, newRole, paymentId, newPaymentStatus } = body || {};
+
+    // 1. Handle Role Update
+    if (customerId && newRole) {
+      const allowedRoles = ['Admin', 'Kitchen', 'Delivery', 'Customer'];
+      if (!allowedRoles.includes(newRole)) {
+        return NextResponse.json({ success: false, message: 'Invalid user role' }, { status: 400 });
+      }
+
+      const [res] = await pool.query('UPDATE Customer SET Role = ? WHERE CustomerID = ?', [newRole, customerId]);
+      if (res.affectedRows === 0) {
+        return NextResponse.json({ success: false, message: 'User not found' }, { status: 404 });
+      }
       return NextResponse.json({ success: true, message: 'Role updated successfully' });
     }
-    
-    // Check if this is a payment status update
-    if (body.paymentId && body.newPaymentStatus) {
-      await pool.query(
-        'UPDATE Payment SET Payment_Status = ? WHERE Payment_ID = ?',
-        [body.newPaymentStatus, body.paymentId]
-      );
+
+    // 2. Handle Payment Status Update
+    if (paymentId && newPaymentStatus) {
+      const allowedPaymentStatuses = ['Pending', 'Completed', 'Failed'];
+      if (!allowedPaymentStatuses.includes(newPaymentStatus)) {
+        return NextResponse.json({ success: false, message: 'Invalid payment status' }, { status: 400 });
+      }
+
+      const [res] = await pool.query('UPDATE Payment SET Payment_Status = ? WHERE Payment_ID = ?', [newPaymentStatus, paymentId]);
+      if (res.affectedRows === 0) {
+        return NextResponse.json({ success: false, message: 'Payment record not found' }, { status: 404 });
+      }
       return NextResponse.json({ success: true, message: 'Payment status updated' });
     }
 
-    return NextResponse.json({ success: false, message: 'Invalid patch request' }, { status: 400 });
+    return NextResponse.json({ success: false, message: 'Invalid patch parameters' }, { status: 400 });
   } catch (error) {
-    console.error("Admin PATCH Error:", error);
-    return NextResponse.json({ success: false, error: 'Failed to update' }, { status: 500 });
+    console.error('Admin PATCH Error:', error);
+    return NextResponse.json({ success: false, error: 'Failed to update admin data', details: error.message }, { status: 500 });
   }
 }
 
 export async function POST(request) {
   try {
-    const { name, email, password, phone, role } = await request.json();
-
-    if (!name || !email || !password || !role) {
-      return NextResponse.json({ success: false, message: 'Missing required fields' }, { status: 400 });
+    let body;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ success: false, message: 'Invalid JSON payload' }, { status: 400 });
     }
 
-    const [existing] = await pool.query('SELECT CustomerID FROM Customer WHERE Email = ?', [email]);
-    if (existing.length > 0) {
+    const { name, email, password, phone, role } = body || {};
+
+    if (!name || !email || !password || !role) {
+      return NextResponse.json({ success: false, message: 'Name, email, password, and role are required' }, { status: 400 });
+    }
+
+    const allowedRoles = ['Admin', 'Kitchen', 'Delivery', 'Customer'];
+    if (!allowedRoles.includes(role)) {
+      return NextResponse.json({ success: false, message: 'Invalid role specified' }, { status: 400 });
+    }
+
+    const trimmedEmail = String(email).trim().toLowerCase();
+
+    const [existing] = await pool.query('SELECT CustomerID FROM Customer WHERE LOWER(Email) = ?', [trimmedEmail]);
+    if (existing && existing.length > 0) {
       return NextResponse.json({ success: false, message: 'Email already registered' }, { status: 409 });
     }
 
-    await pool.query(
+    const [result] = await pool.query(
       'INSERT INTO Customer (Name, Email, Password, Phone, Role) VALUES (?, ?, ?, ?, ?)',
-      [name, email, password, phone || '', role]
+      [String(name).trim(), trimmedEmail, String(password), phone ? String(phone).trim() : '', role]
     );
 
-    return NextResponse.json({ success: true, message: 'User added successfully' });
+    return NextResponse.json(
+      { success: true, message: 'User added successfully', customerId: result.insertId },
+      { status: 201 }
+    );
   } catch (error) {
-    console.error("Admin POST Error:", error);
-    return NextResponse.json({ success: false, error: 'Failed to create user' }, { status: 500 });
+    console.error('Admin POST Error:', error);
+    return NextResponse.json({ success: false, error: 'Failed to create user', details: error.message }, { status: 500 });
   }
 }

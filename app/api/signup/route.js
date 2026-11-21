@@ -3,27 +3,53 @@ import pool from '@/lib/db';
 
 export async function POST(request) {
   try {
-    const { name, email, password, phone, street, road, house } = await request.json();
+    let body;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ success: false, message: 'Invalid JSON request payload' }, { status: 400 });
+    }
+
+    const { name, email, password, phone, street, road, house } = body || {};
 
     if (!name || !email || !password) {
-      return NextResponse.json({ success: false, message: 'Missing required fields' }, { status: 400 });
+      return NextResponse.json({ success: false, message: 'Name, email, and password are required' }, { status: 400 });
     }
 
-    // Check if user already exists
-    const [existing] = await pool.query('SELECT CustomerID FROM Customer WHERE Email = ?', [email]);
-    if (existing.length > 0) {
-      return NextResponse.json({ success: false, message: 'Email already registered' }, { status: 409 });
+    const trimmedEmail = String(email).trim().toLowerCase();
+    const trimmedName = String(name).trim();
+
+    // Check if email already registered
+    const [existing] = await pool.query('SELECT CustomerID FROM Customer WHERE LOWER(Email) = ?', [trimmedEmail]);
+    if (existing && existing.length > 0) {
+      return NextResponse.json({ success: false, message: 'An account with this email is already registered.' }, { status: 409 });
     }
 
-    // Insert new customer (default role 'Customer')
+    // Insert new customer
     const [result] = await pool.query(
-      'INSERT INTO Customer (Name, Email, Password, Phone, Street, Road, House, Role) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      [name, email, password, phone || '', street || '', road || '', house || '', 'Customer']
+      `INSERT INTO Customer (Name, Email, Password, Phone, Street, Road, House, Role) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'Customer')`,
+      [
+        trimmedName,
+        trimmedEmail,
+        String(password),
+        phone ? String(phone).trim() : '',
+        street ? String(street).trim() : '',
+        road ? String(road).trim() : '',
+        house ? String(house).trim() : ''
+      ]
     );
 
-    return NextResponse.json({ success: true, message: 'Registration successful' });
+    return NextResponse.json(
+      {
+        success: true,
+        message: 'Account created successfully! You can now log in.',
+        customerId: result.insertId
+      },
+      { status: 201 }
+    );
   } catch (error) {
-    console.error("Signup Error:", error);
-    return NextResponse.json({ success: false, error: 'Failed to register' }, { status: 500 });
+    console.error('Signup API Error:', error);
+    return NextResponse.json({ success: false, error: 'Registration failed', details: error.message }, { status: 500 });
   }
 }
