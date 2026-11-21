@@ -60,7 +60,7 @@ function normalizeRoleKey(rawRole) {
   return 'customer';
 }
 
-async function performRoleSwitch(targetRoleKey, req) {
+async function performRoleSwitch(targetRoleKey) {
   const fallback = DEMO_FALLBACKS[targetRoleKey] || DEMO_FALLBACKS.customer;
   let userData = { ...fallback };
 
@@ -159,7 +159,7 @@ export async function POST(req) {
     const requestedRole = body.role || 'customer';
     const normalizedKey = normalizeRoleKey(requestedRole);
 
-    return await performRoleSwitch(normalizedKey, req);
+    return await performRoleSwitch(normalizedKey);
   } catch (error) {
     console.error('[Demo Switch Error]:', error);
     return NextResponse.json(
@@ -177,7 +177,7 @@ export async function GET(req) {
     // If role query parameter is passed (e.g. /api/demo-switch?role=admin), perform the switch
     if (requestedRole) {
       const normalizedKey = normalizeRoleKey(requestedRole);
-      return await performRoleSwitch(normalizedKey, req);
+      return await performRoleSwitch(normalizedKey);
     }
 
     // Otherwise, return available demo accounts and current active role
