@@ -18,30 +18,32 @@ export async function POST(req) {
 
     const trimmedEmail = String(email).trim().toLowerCase();
 
-    // Authenticate user against Customer table
+    // Authenticate user against "Customer" table in PostgreSQL
     const [rows] = await pool.query(
-      'SELECT CustomerID, Name, Email, Phone, Role, Street, Road, House FROM Customer WHERE LOWER(Email) = ? AND Password = ?',
+      `SELECT "CustomerID", "Name", "Email", "Phone", "Role", "Street", "Road", "House" 
+       FROM "Customer" 
+       WHERE LOWER("Email") = $1 AND "Password" = $2`,
       [trimmedEmail, String(password)]
     );
 
     if (rows && rows.length > 0) {
       const user = rows[0];
-      const role = (user.Role || 'Customer').toLowerCase();
+      const role = (user.Role || user.role || 'Customer').toLowerCase();
 
       const response = NextResponse.json({
         success: true,
         message: 'Login successful',
         role: role,
-        id: user.CustomerID,
+        id: user.CustomerID || user.customerid,
         user: {
-          id: user.CustomerID,
-          name: user.Name,
-          email: user.Email,
-          phone: user.Phone,
-          role: user.Role,
-          street: user.Street,
-          road: user.Road,
-          house: user.House
+          id: user.CustomerID || user.customerid,
+          name: user.Name || user.name,
+          email: user.Email || user.email,
+          phone: user.Phone || user.phone,
+          role: user.Role || user.role,
+          street: user.Street || user.street,
+          road: user.Road || user.road,
+          house: user.House || user.house
         }
       });
 

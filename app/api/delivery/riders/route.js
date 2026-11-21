@@ -4,18 +4,18 @@ import pool from '@/lib/db';
 export async function GET() {
   try {
     const [rows] = await pool.query(`
-      SELECT c.CustomerID, c.Name, c.Email, c.Phone,
+      SELECT c."CustomerID", c."Name", c."Email", c."Phone",
         CASE 
           WHEN EXISTS (
-            SELECT 1 FROM \`Order\` o 
-            WHERE o.DeliveryManID = c.CustomerID 
-            AND (SELECT Status FROM Order_History WHERE OrderID = o.OrderID ORDER BY Status_Date DESC LIMIT 1) = 'Dispatched'
+            SELECT 1 FROM "Order" o 
+            WHERE o."DeliveryManID" = c."CustomerID" 
+            AND (SELECT "Status" FROM "Order_History" WHERE "OrderID" = o."OrderID" ORDER BY "Status_Date" DESC LIMIT 1) = 'Dispatched'
           ) THEN 'Occupied'
           ELSE 'Free'
-        END as Status
-      FROM Customer c
-      WHERE c.Role = 'Delivery'
-      ORDER BY c.CustomerID ASC
+        END as "Status"
+      FROM "Customer" c
+      WHERE c."Role" = 'Delivery'
+      ORDER BY c."CustomerID" ASC
     `);
 
     return NextResponse.json({ success: true, data: rows || [] });

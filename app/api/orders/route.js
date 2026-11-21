@@ -39,53 +39,55 @@ export async function POST(request) {
     const allowedPaymentMethods = ['Cash On Delivery', 'bKash', 'Card'];
     const selectedMethod = allowedPaymentMethods.includes(paymentMethod) ? paymentMethod : 'Cash On Delivery';
 
-    // Acquire dedicated connection from pool for atomic transaction
+    // Acquire dedicated connection from Neon pool for atomic transaction
     connection = await pool.getConnection();
     await connection.beginTransaction();
 
     // Verify customer exists
-    const [customerRows] = await connection.query('SELECT CustomerID FROM Customer WHERE CustomerID = ?', [customerId]);
+    const [customerRows] = await connection.query('SELECT "CustomerID" FROM "Customer" WHERE "CustomerID" = $1', [customerId]);
     if (!customerRows || customerRows.length === 0) {
       await connection.rollback();
       return NextResponse.json({ success: false, message: 'Customer account not found' }, { status: 404 });
     }
 
     // Generate unique order number safely
-    const [countRows] = await connection.query('SELECT COUNT(*) as total FROM `Order`');
-    const nextCount = (countRows[0]?.total || 0) + 1;
+    const [countRows] = await connection.query('SELECT COUNT(*) as total FROM "Order"');
+    const nextCount = parseInt(countRows[0]?.total || '0', 10) + 1;
     let orderNumber = `26-${String(nextCount).padStart(3, '0')}`;
 
     // Check collision and adjust if necessary
-    const [existingOrder] = await connection.query('SELECT OrderID FROM `Order` WHERE Order_Number = ?', [orderNumber]);
+    const [existingOrder] = await connection.query('SELECT "OrderID" FROM "Order" WHERE "Order_Number" = $1', [orderNumber]);
     if (existingOrder && existingOrder.length > 0) {
       orderNumber = `26-${String(nextCount).padStart(3, '0')}-${Math.floor(100 + Math.random() * 900)}`;
     }
 
-    // 1. Insert into Order table
+    // 1. Insert into "Order" table using PostgreSQL RETURNING
     const [orderResult] = await connection.query(
-      'INSERT INTO `Order` (CustomerID, Total_Price, Order_Number) VALUES (?, ?, ?)',
+      `INSERT INTO "Order" ("CustomerID", "Total_Price", "Order_Number", "Order_Date") 
+       VALUES ($1, $2, $3, CURRENT_TIMESTAMP) 
+       RETURNING "OrderID"`,
       [customerId, parsedTotal, orderNumber]
     );
-    const orderId = orderResult.insertId;
+    const orderId = orderResult[0]?.OrderID || orderResult[0]?.orderid;
 
-    // 2. Insert items into PLACES_ITEM
+    // 2. Insert items into "PLACES_ITEM"
     for (const item of items) {
       await connection.query(
-        'INSERT INTO PLACES_ITEM (OrderID, MenuItemID, Quantity) VALUES (?, ?, ?)',
+        'INSERT INTO "PLACES_ITEM" ("OrderID", "MenuItemID", "Quantity") VALUES ($1, $2, $3)',
         [orderId, item.menuItemId, item.quantity]
       );
     }
 
-    // 3. Insert initial status in Order_History
+    // 3. Insert initial status in "Order_History"
     await connection.query(
-      'INSERT INTO Order_History (OrderID, Status, Status_Date) VALUES (?, ?, NOW())',
+      'INSERT INTO "Order_History" ("OrderID", "Status", "Status_Date") VALUES ($1, $2, CURRENT_TIMESTAMP)',
       [orderId, 'Pending']
     );
 
     // 4. Insert Payment record
     const paymentStatus = selectedMethod === 'Cash On Delivery' ? 'Pending' : 'Completed';
     await connection.query(
-      'INSERT INTO Payment (Order_ID, Payment_Method, Payment_Status, Amount, Payment_Date) VALUES (?, ?, ?, ?, NOW())',
+      'INSERT INTO "Payment" ("Order_ID", "Payment_Method", "Payment_Status", "Amount", "Payment_Date") VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)',
       [orderId, selectedMethod, paymentStatus, parsedTotal]
     );
 

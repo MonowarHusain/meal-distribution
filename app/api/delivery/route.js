@@ -5,18 +5,18 @@ export async function GET() {
   try {
     // Fetch orders that are 'Cooking_Done' (Ready for pickup) or 'Dispatched' (Out for delivery)
     const [rows] = await pool.query(`
-      SELECT o.OrderID, o.Order_Number, o.Total_Price, o.Order_Date, o.DeliveryManID,
-             c.Name as CustomerName, c.Phone, c.Street, c.Road, c.House,
-             (SELECT Status FROM Order_History WHERE OrderID = o.OrderID ORDER BY Status_Date DESC LIMIT 1) as Status
-      FROM \`Order\` o
-      JOIN Customer c ON o.CustomerID = c.CustomerID
+      SELECT o."OrderID", o."Order_Number", o."Total_Price", o."Order_Date", o."DeliveryManID",
+             c."Name" as "CustomerName", c."Phone", c."Street", c."Road", c."House",
+             (SELECT "Status" FROM "Order_History" WHERE "OrderID" = o."OrderID" ORDER BY "Status_Date" DESC LIMIT 1) as "Status"
+      FROM "Order" o
+      JOIN "Customer" c ON o."CustomerID" = c."CustomerID"
       WHERE EXISTS (
-        SELECT 1 FROM Order_History oh 
-        WHERE oh.OrderID = o.OrderID 
-        AND oh.Status IN ('Cooking_Done', 'Dispatched')
-        AND oh.Status = (SELECT Status FROM Order_History WHERE OrderID = o.OrderID ORDER BY Status_Date DESC LIMIT 1)
+        SELECT 1 FROM "Order_History" oh 
+        WHERE oh."OrderID" = o."OrderID" 
+        AND oh."Status" IN ('Cooking_Done', 'Dispatched')
+        AND oh."Status" = (SELECT "Status" FROM "Order_History" WHERE "OrderID" = o."OrderID" ORDER BY "Status_Date" DESC LIMIT 1)
       )
-      ORDER BY o.Order_Date ASC
+      ORDER BY o."Order_Date" ASC
     `);
 
     return NextResponse.json({ success: true, data: rows || [] });
@@ -48,7 +48,7 @@ export async function PATCH(request) {
 
     // Get current latest status
     const [history] = await pool.query(
-      'SELECT Status FROM Order_History WHERE OrderID = ? ORDER BY Status_Date DESC LIMIT 1',
+      'SELECT "Status" FROM "Order_History" WHERE "OrderID" = $1 ORDER BY "Status_Date" DESC LIMIT 1',
       [parsedOrderId]
     );
 
@@ -56,7 +56,7 @@ export async function PATCH(request) {
       return NextResponse.json({ success: false, message: 'Order not found' }, { status: 404 });
     }
 
-    const currentStatus = history[0].Status;
+    const currentStatus = history[0].Status || history[0].status;
     let nextStatus = '';
 
     if (currentStatus === 'Cooking_Done') {
@@ -67,16 +67,16 @@ export async function PATCH(request) {
       return NextResponse.json({ success: false, message: `Order is not in a deliverable state (Current: ${currentStatus})` }, { status: 400 });
     }
 
-    // Record next status in Order_History
+    // Record next status in "Order_History"
     await pool.query(
-      'INSERT INTO Order_History (OrderID, Status, Status_Date) VALUES (?, ?, NOW())',
+      'INSERT INTO "Order_History" ("OrderID", "Status", "Status_Date") VALUES ($1, $2, CURRENT_TIMESTAMP)',
       [parsedOrderId, nextStatus]
     );
 
     // If a delivery rider accepts the order, assign it to them
     if (nextStatus === 'Dispatched' && deliverymanId) {
       await pool.query(
-        'UPDATE `Order` SET DeliveryManID = ? WHERE OrderID = ?',
+        'UPDATE "Order" SET "DeliveryManID" = $1 WHERE "OrderID" = $2',
         [deliverymanId, parsedOrderId]
       );
     }
@@ -84,9 +84,9 @@ export async function PATCH(request) {
     // Auto-confirm Cash On Delivery payments when delivery is completed
     if (nextStatus === 'Delivered') {
       await pool.query(
-        `UPDATE Payment 
-         SET Payment_Status = 'Completed' 
-         WHERE Order_ID = ? AND Payment_Method = 'Cash On Delivery'`,
+        `UPDATE "Payment" 
+         SET "Payment_Status" = 'Completed' 
+         WHERE "Order_ID" = $1 AND "Payment_Method" = 'Cash On Delivery'`,
         [parsedOrderId]
       );
     }

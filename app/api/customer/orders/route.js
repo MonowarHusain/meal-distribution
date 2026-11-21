@@ -16,11 +16,11 @@ export async function GET(request) {
     }
 
     const [rows] = await pool.query(
-      `SELECT o.OrderID, o.Order_Number, o.Total_Price, o.Order_Date,
-              COALESCE((SELECT Status FROM Order_History WHERE OrderID = o.OrderID ORDER BY Status_Date DESC LIMIT 1), 'Pending') as Status
-       FROM \`Order\` o
-       WHERE o.CustomerID = ?
-       ORDER BY o.Order_Date DESC`,
+      `SELECT o."OrderID", o."Order_Number", o."Total_Price", o."Order_Date",
+              COALESCE((SELECT "Status" FROM "Order_History" WHERE "OrderID" = o."OrderID" ORDER BY "Status_Date" DESC LIMIT 1), 'Pending') as "Status"
+       FROM "Order" o
+       WHERE o."CustomerID" = $1
+       ORDER BY o."Order_Date" DESC`,
       [parsedCustomerId]
     );
 

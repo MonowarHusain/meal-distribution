@@ -17,22 +17,22 @@ export async function GET(request, { params }) {
 
     // 1. Fetch the exact items ordered
     const [items] = await pool.query(
-      `SELECT m.MenuItemID, m.Name, m.Price, m.Item_Type, p.Quantity, (m.Price * p.Quantity) as Subtotal
-       FROM PLACES_ITEM p
-       JOIN MenuItem m ON p.MenuItemID = m.MenuItemID
-       WHERE p.OrderID = ?`,
+      `SELECT m."MenuItemID", m."Name", m."Price", m."Item_Type", p."Quantity", (m."Price" * p."Quantity") as "Subtotal"
+       FROM "PLACES_ITEM" p
+       JOIN "MenuItem" m ON p."MenuItemID" = m."MenuItemID"
+       WHERE p."OrderID" = $1`,
       [parsedOrderId]
     );
 
     // 2. Fetch the customer and order details
     const [orderDetails] = await pool.query(
-      `SELECT o.OrderID, o.Order_Number, o.Total_Price, o.Order_Date, o.DeliveryManID,
-              c.CustomerID, c.Name, c.Phone, c.Street, c.Road, c.House,
-              p.Payment_Method, p.Payment_Status
-       FROM \`Order\` o
-       JOIN Customer c ON o.CustomerID = c.CustomerID
-       LEFT JOIN Payment p ON o.OrderID = p.Order_ID
-       WHERE o.OrderID = ?`,
+      `SELECT o."OrderID", o."Order_Number", o."Total_Price", o."Order_Date", o."DeliveryManID",
+              c."CustomerID", c."Name", c."Phone", c."Street", c."Road", c."House",
+              p."Payment_Method", p."Payment_Status"
+       FROM "Order" o
+       JOIN "Customer" c ON o."CustomerID" = c."CustomerID"
+       LEFT JOIN "Payment" p ON o."OrderID" = p."Order_ID"
+       WHERE o."OrderID" = $1`,
       [parsedOrderId]
     );
 
@@ -42,10 +42,10 @@ export async function GET(request, { params }) {
 
     // 3. Fetch the full status timeline
     const [timeline] = await pool.query(
-      `SELECT Status, Status_Date
-       FROM Order_History
-       WHERE OrderID = ?
-       ORDER BY Status_Date ASC`,
+      `SELECT "Status", "Status_Date"
+       FROM "Order_History"
+       WHERE "OrderID" = $1
+       ORDER BY "Status_Date" ASC`,
       [parsedOrderId]
     );
 
@@ -54,20 +54,20 @@ export async function GET(request, { params }) {
     return NextResponse.json({
       success: true,
       order: {
-        orderId: order.OrderID,
-        orderNumber: order.Order_Number,
-        totalPrice: order.Total_Price,
-        orderDate: order.Order_Date,
-        paymentMethod: order.Payment_Method,
-        paymentStatus: order.Payment_Status
+        orderId: order.OrderID || order.orderid,
+        orderNumber: order.Order_Number || order.order_number,
+        totalPrice: order.Total_Price || order.total_price,
+        orderDate: order.Order_Date || order.order_date,
+        paymentMethod: order.Payment_Method || order.payment_method,
+        paymentStatus: order.Payment_Status || order.payment_status
       },
       customer: {
-        customerId: order.CustomerID,
-        name: order.Name,
-        phone: order.Phone,
-        street: order.Street,
-        road: order.Road,
-        house: order.House
+        customerId: order.CustomerID || order.customerid,
+        name: order.Name || order.name,
+        phone: order.Phone || order.phone,
+        street: order.Street || order.street,
+        road: order.Road || order.road,
+        house: order.House || order.house
       },
       items: items || [],
       timeline: timeline || []

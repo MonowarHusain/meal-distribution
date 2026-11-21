@@ -16,9 +16,9 @@ export async function GET(request) {
     }
 
     const [rows] = await pool.query(
-      `SELECT CustomerID, Name, Email, Phone, Street, Road, House, Role 
-       FROM Customer 
-       WHERE CustomerID = ?`,
+      `SELECT "CustomerID", "Name", "Email", "Phone", "Street", "Road", "House", "Role" 
+       FROM "Customer" 
+       WHERE "CustomerID" = $1`,
       [parsedCustomerId]
     );
 
@@ -53,18 +53,26 @@ export async function PATCH(request) {
       return NextResponse.json({ success: false, message: 'Invalid customerId' }, { status: 400 });
     }
 
-    const [result] = await pool.query(
-      `UPDATE Customer 
-       SET Name = COALESCE(?, Name), 
-           Phone = COALESCE(?, Phone), 
-           Street = COALESCE(?, Street), 
-           Road = COALESCE(?, Road), 
-           House = COALESCE(?, House)
-       WHERE CustomerID = ?`,
-      [name?.trim(), phone?.trim(), street?.trim(), road?.trim(), house?.trim(), parsedCustomerId]
+    const [rows] = await pool.query(
+      `UPDATE "Customer" 
+       SET "Name" = COALESCE($1, "Name"), 
+           "Phone" = COALESCE($2, "Phone"), 
+           "Street" = COALESCE($3, "Street"), 
+           "Road" = COALESCE($4, "Road"), 
+           "House" = COALESCE($5, "House")
+       WHERE "CustomerID" = $6
+       RETURNING "CustomerID"`,
+      [
+        name ? String(name).trim() : null, 
+        phone ? String(phone).trim() : null, 
+        street ? String(street).trim() : null, 
+        road ? String(road).trim() : null, 
+        house ? String(house).trim() : null, 
+        parsedCustomerId
+      ]
     );
 
-    if (result.affectedRows === 0) {
+    if (!rows || rows.length === 0) {
       return NextResponse.json({ success: false, message: 'Customer not found' }, { status: 404 });
     }
 

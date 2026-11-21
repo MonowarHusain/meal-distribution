@@ -4,13 +4,13 @@ import pool from '@/lib/db';
 export async function GET() {
   try {
     const [rows] = await pool.query(`
-      SELECT m.*, 
-             COALESCE(AVG(r.Rating), 0) AS AvgRating, 
-             COUNT(r.ReviewID) AS ReviewCount
-      FROM MenuItem m
-      LEFT JOIN Review r ON m.MenuItemID = r.MenuItemID
-      GROUP BY m.MenuItemID
-      ORDER BY m.MenuItemID ASC
+      SELECT m."MenuItemID", m."Name", m."Price", m."Image_URL", m."Item_Type",
+             COALESCE(AVG(r."Rating"), 0) AS "AvgRating", 
+             COUNT(r."ReviewID") AS "ReviewCount"
+      FROM "MenuItem" m
+      LEFT JOIN "Review" r ON m."MenuItemID" = r."MenuItemID"
+      GROUP BY m."MenuItemID", m."Name", m."Price", m."Image_URL", m."Item_Type"
+      ORDER BY m."MenuItemID" ASC
     `);
     return NextResponse.json({ success: true, data: rows || [] });
   } catch (error) {
@@ -42,16 +42,20 @@ export async function POST(req) {
     const itemType = type === 'Premium' ? 'Premium' : 'Regular';
     const imageUrl = image_url ? String(image_url).trim() : '';
 
-    const [result] = await pool.query(
-      'INSERT INTO MenuItem (Name, Price, Image_URL, Item_Type) VALUES (?, ?, ?, ?)',
+    const [rows] = await pool.query(
+      `INSERT INTO "MenuItem" ("Name", "Price", "Image_URL", "Item_Type") 
+       VALUES ($1, $2, $3, $4) 
+       RETURNING "MenuItemID"`,
       [String(name).trim(), parsedPrice, imageUrl, itemType]
     );
+
+    const menuItemId = rows[0]?.MenuItemID || rows[0]?.menuitemid;
 
     return NextResponse.json(
       {
         success: true,
         message: 'Menu item created successfully',
-        menuItemId: result.insertId
+        menuItemId
       },
       { status: 201 }
     );
@@ -75,9 +79,9 @@ export async function DELETE(req) {
       return NextResponse.json({ success: false, message: 'Invalid item ID' }, { status: 400 });
     }
 
-    const [result] = await pool.query('DELETE FROM MenuItem WHERE MenuItemID = ?', [parsedId]);
+    const [rows] = await pool.query('DELETE FROM "MenuItem" WHERE "MenuItemID" = $1 RETURNING "MenuItemID"', [parsedId]);
 
-    if (result.affectedRows === 0) {
+    if (!rows || rows.length === 0) {
       return NextResponse.json({ success: false, message: 'Menu item not found' }, { status: 404 });
     }
 

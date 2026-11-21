@@ -3,10 +3,10 @@ import pool from '@/lib/db';
 
 export async function GET() {
   try {
-    const [rows] = await pool.query('SELECT 1 as connected, NOW() as server_time');
+    const [rows] = await pool.query('SELECT 1 as connected, CURRENT_TIMESTAMP as server_time');
     return NextResponse.json({
       success: true,
-      message: 'Database connection verified successfully',
+      message: 'Neon PostgreSQL database connection verified successfully',
       data: rows[0] || null
     });
   } catch (error) {

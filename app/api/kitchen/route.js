@@ -4,12 +4,14 @@ import pool from '@/lib/db';
 export async function GET() {
   try {
     const query = `
-      SELECT o.OrderID, o.Order_Number, o.Total_Price, o.Order_Date, c.Name as CustomerName, 
-             COALESCE((SELECT Status FROM Order_History WHERE OrderID = o.OrderID ORDER BY Status_Date DESC LIMIT 1), 'Pending') as LatestStatus
-      FROM \`Order\` o
-      JOIN Customer c ON o.CustomerID = c.CustomerID
-      HAVING LatestStatus IN ('Pending', 'Kitchen_Accepted')
-      ORDER BY o.Order_Date ASC
+      SELECT * FROM (
+        SELECT o."OrderID", o."Order_Number", o."Total_Price", o."Order_Date", c."Name" as "CustomerName", 
+               COALESCE((SELECT "Status" FROM "Order_History" WHERE "OrderID" = o."OrderID" ORDER BY "Status_Date" DESC LIMIT 1), 'Pending') as "LatestStatus"
+        FROM "Order" o
+        JOIN "Customer" c ON o."CustomerID" = c."CustomerID"
+      ) sub
+      WHERE "LatestStatus" IN ('Pending', 'Kitchen_Accepted')
+      ORDER BY "Order_Date" ASC
     `;
     const [rows] = await pool.query(query);
     return NextResponse.json({ success: true, data: rows || [] });
@@ -46,13 +48,13 @@ export async function PATCH(request) {
     }
 
     // Verify order exists
-    const [orderExists] = await pool.query('SELECT OrderID FROM `Order` WHERE OrderID = ?', [parsedOrderId]);
+    const [orderExists] = await pool.query('SELECT "OrderID" FROM "Order" WHERE "OrderID" = $1', [parsedOrderId]);
     if (!orderExists || orderExists.length === 0) {
       return NextResponse.json({ success: false, message: 'Order not found' }, { status: 404 });
     }
 
     await pool.query(
-      'INSERT INTO Order_History (OrderID, Status, Status_Date) VALUES (?, ?, NOW())',
+      'INSERT INTO "Order_History" ("OrderID", "Status", "Status_Date") VALUES ($1, $2, CURRENT_TIMESTAMP)',
       [parsedOrderId, newStatus]
     );
 

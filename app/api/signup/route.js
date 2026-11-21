@@ -20,15 +20,16 @@ export async function POST(request) {
     const trimmedName = String(name).trim();
 
     // Check if email already registered
-    const [existing] = await pool.query('SELECT CustomerID FROM Customer WHERE LOWER(Email) = ?', [trimmedEmail]);
+    const [existing] = await pool.query('SELECT "CustomerID" FROM "Customer" WHERE LOWER("Email") = $1', [trimmedEmail]);
     if (existing && existing.length > 0) {
       return NextResponse.json({ success: false, message: 'An account with this email is already registered.' }, { status: 409 });
     }
 
-    // Insert new customer
-    const [result] = await pool.query(
-      `INSERT INTO Customer (Name, Email, Password, Phone, Street, Road, House, Role) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, 'Customer')`,
+    // Insert new customer using PostgreSQL RETURNING syntax
+    const [rows] = await pool.query(
+      `INSERT INTO "Customer" ("Name", "Email", "Password", "Phone", "Street", "Road", "House", "Role") 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, 'Customer')
+       RETURNING "CustomerID"`,
       [
         trimmedName,
         trimmedEmail,
@@ -40,11 +41,13 @@ export async function POST(request) {
       ]
     );
 
+    const customerId = rows[0]?.CustomerID || rows[0]?.customerid;
+
     return NextResponse.json(
       {
         success: true,
         message: 'Account created successfully! You can now log in.',
-        customerId: result.insertId
+        customerId
       },
       { status: 201 }
     );

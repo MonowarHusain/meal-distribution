@@ -5,31 +5,31 @@ export async function GET() {
   try {
     // 1. Fetch all users
     const [users] = await pool.query(
-      'SELECT CustomerID, Name, Email, Phone, Role, Street, Road, House, CreatedAt FROM Customer ORDER BY CustomerID DESC'
+      'SELECT "CustomerID", "Name", "Email", "Phone", "Role", "Street", "Road", "House", "CreatedAt" FROM "Customer" ORDER BY "CustomerID" DESC'
     );
 
     // 2. Fetch all orders globally with their latest status
     const [orders] = await pool.query(`
-      SELECT o.OrderID, o.Order_Number, o.Total_Price, o.Order_Date, c.Name as CustomerName, c.Phone as CustomerPhone,
-             COALESCE((SELECT Status FROM Order_History WHERE OrderID = o.OrderID ORDER BY Status_Date DESC LIMIT 1), 'Pending') as Status
-      FROM \`Order\` o
-      JOIN Customer c ON o.CustomerID = c.CustomerID
-      ORDER BY o.Order_Date DESC
+      SELECT o."OrderID", o."Order_Number", o."Total_Price", o."Order_Date", c."Name" as "CustomerName", c."Phone" as "CustomerPhone",
+             COALESCE((SELECT "Status" FROM "Order_History" WHERE "OrderID" = o."OrderID" ORDER BY "Status_Date" DESC LIMIT 1), 'Pending') as "Status"
+      FROM "Order" o
+      JOIN "Customer" c ON o."CustomerID" = c."CustomerID"
+      ORDER BY o."Order_Date" DESC
     `);
 
     // 3. Fetch all payments
     const [payments] = await pool.query(`
-      SELECT p.Payment_ID, p.Payment_Method, p.Payment_Status, p.Amount, p.Payment_Date, o.Order_Number, c.Name as CustomerName
-      FROM Payment p
-      JOIN \`Order\` o ON p.Order_ID = o.OrderID
-      JOIN Customer c ON o.CustomerID = c.CustomerID
-      ORDER BY p.Payment_Date DESC
+      SELECT p."Payment_ID", p."Payment_Method", p."Payment_Status", p."Amount", p."Payment_Date", o."Order_Number", c."Name" as "CustomerName"
+      FROM "Payment" p
+      JOIN "Order" o ON p."Order_ID" = o."OrderID"
+      JOIN "Customer" c ON o."CustomerID" = c."CustomerID"
+      ORDER BY p."Payment_Date" DESC
     `);
 
     // Calculate revenue based only on Completed payments
     const totalRevenue = (payments || [])
-      .filter(p => p.Payment_Status === 'Completed')
-      .reduce((sum, p) => sum + parseFloat(p.Amount || 0), 0);
+      .filter(p => (p.Payment_Status || p.payment_status) === 'Completed')
+      .reduce((sum, p) => sum + parseFloat(p.Amount || p.amount || 0), 0);
 
     return NextResponse.json({
       success: true,
@@ -66,8 +66,8 @@ export async function PATCH(request) {
         return NextResponse.json({ success: false, message: 'Invalid user role' }, { status: 400 });
       }
 
-      const [res] = await pool.query('UPDATE Customer SET Role = ? WHERE CustomerID = ?', [newRole, customerId]);
-      if (res.affectedRows === 0) {
+      const [res] = await pool.query('UPDATE "Customer" SET "Role" = $1 WHERE "CustomerID" = $2 RETURNING "CustomerID"', [newRole, customerId]);
+      if (!res || res.length === 0) {
         return NextResponse.json({ success: false, message: 'User not found' }, { status: 404 });
       }
       return NextResponse.json({ success: true, message: 'Role updated successfully' });
@@ -80,8 +80,8 @@ export async function PATCH(request) {
         return NextResponse.json({ success: false, message: 'Invalid payment status' }, { status: 400 });
       }
 
-      const [res] = await pool.query('UPDATE Payment SET Payment_Status = ? WHERE Payment_ID = ?', [newPaymentStatus, paymentId]);
-      if (res.affectedRows === 0) {
+      const [res] = await pool.query('UPDATE "Payment" SET "Payment_Status" = $1 WHERE "Payment_ID" = $2 RETURNING "Payment_ID"', [newPaymentStatus, paymentId]);
+      if (!res || res.length === 0) {
         return NextResponse.json({ success: false, message: 'Payment record not found' }, { status: 404 });
       }
       return NextResponse.json({ success: true, message: 'Payment status updated' });
@@ -116,18 +116,20 @@ export async function POST(request) {
 
     const trimmedEmail = String(email).trim().toLowerCase();
 
-    const [existing] = await pool.query('SELECT CustomerID FROM Customer WHERE LOWER(Email) = ?', [trimmedEmail]);
+    const [existing] = await pool.query('SELECT "CustomerID" FROM "Customer" WHERE LOWER("Email") = $1', [trimmedEmail]);
     if (existing && existing.length > 0) {
       return NextResponse.json({ success: false, message: 'Email already registered' }, { status: 409 });
     }
 
     const [result] = await pool.query(
-      'INSERT INTO Customer (Name, Email, Password, Phone, Role) VALUES (?, ?, ?, ?, ?)',
+      'INSERT INTO "Customer" ("Name", "Email", "Password", "Phone", "Role") VALUES ($1, $2, $3, $4, $5) RETURNING "CustomerID"',
       [String(name).trim(), trimmedEmail, String(password), phone ? String(phone).trim() : '', role]
     );
 
+    const customerId = result[0]?.CustomerID || result[0]?.customerid;
+
     return NextResponse.json(
-      { success: true, message: 'User added successfully', customerId: result.insertId },
+      { success: true, message: 'User added successfully', customerId },
       { status: 201 }
     );
   } catch (error) {
