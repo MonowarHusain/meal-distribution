@@ -11,7 +11,7 @@ export async function GET() {
       steps: result.steps,
       demoAccounts: [
         { role: 'Admin', email: 'admin@meal.com', password: 'admin123' },
-        { role: 'Admin (Legacy)', email: 'omi@bracu.edu.bd', password: 'hashedpass' },
+        { role: 'Admin (Developer)', email: 'omi@bracu.edu.bd', password: 'admin123' },
         { role: 'Kitchen', email: 'kitchen@meal.com', password: 'kitchen123' },
         { role: 'Delivery', email: 'delivery@meal.com', password: 'delivery123' },
         { role: 'Customer', email: 'customer@meal.com', password: 'customer123' }
@@ -22,6 +22,7 @@ export async function GET() {
     return NextResponse.json(
       {
         success: false,
+        message: error.message || 'Failed to initialize Neon PostgreSQL database',
         error: 'Failed to initialize Neon PostgreSQL database',
         details: error.message
       },

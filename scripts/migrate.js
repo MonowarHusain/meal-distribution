@@ -1,9 +1,14 @@
-import 'dotenv/config';
 import fs from 'fs';
-import pool from '../lib/db.js';
-import { initializeDatabase } from '../lib/schema.js';
+import dotenv from 'dotenv';
 
-// Try native env loader if available
+// 1. Ensure local environment variables are loaded first
+if (fs.existsSync('.env.local')) {
+  dotenv.config({ path: '.env.local' });
+}
+if (fs.existsSync('.env')) {
+  dotenv.config({ path: '.env' });
+}
+
 try {
   if (typeof process.loadEnvFile === 'function') {
     if (fs.existsSync('.env.local')) process.loadEnvFile('.env.local');
@@ -13,19 +18,23 @@ try {
   // Ignore missing local env file
 }
 
+import pool from '../lib/db.js';
+import { initializeDatabase } from '../lib/schema.js';
+
 async function migrate() {
   console.log('🔄 Starting Meal Distribution Neon PostgreSQL migration & setup...');
 
   const hasDbConfig = !!(process.env.DATABASE_URL || process.env.POSTGRES_URL);
   if (!hasDbConfig) {
-    console.warn('⚠️ Warning: No DATABASE_URL found in environment. Please set DATABASE_URL in .env.local.');
+    console.error('❌ Error: DATABASE_URL not found in environment. Please set DATABASE_URL in .env or .env.local.');
+    process.exit(1);
   }
 
   try {
     const result = await initializeDatabase(pool);
     console.log('✅ PostgreSQL Migration completed successfully!');
     result.steps.forEach(step => console.log(`   - ${step}`));
-    console.log('\nDemo Logins Available:');
+    console.log('\nDemo Logins Available (bcrypt hashed & verified):');
     console.log('   👑 Admin:    admin@meal.com    / admin123');
     console.log('   🍳 Kitchen:  kitchen@meal.com  / kitchen123');
     console.log('   🛵 Delivery: delivery@meal.com / delivery123');
