@@ -11,10 +11,20 @@ export default function Home() {
   // Cart States
   const [cart, setCart] = useState([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
-  const [customerId, setCustomerId] = useState(1);
+  const [customerId] = useState(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const userStr = localStorage.getItem('user');
+        if (userStr) {
+          const userObj = JSON.parse(userStr);
+          if (userObj.id) return userObj.id;
+        }
+      } catch {}
+    }
+    return 1;
+  });
   
   // Review States
-  const [pendingReviews, setPendingReviews] = useState([]);
   const [myReviews, setMyReviews] = useState([]);
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [currentReviewItem, setCurrentReviewItem] = useState(null);
@@ -33,17 +43,6 @@ export default function Home() {
   // Order Details Modal States
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [orderDetails, setOrderDetails] = useState(null);
-
-  // Initialize Session
-  useEffect(() => {
-    try {
-      const userStr = localStorage.getItem('user');
-      if (userStr) {
-        const userObj = JSON.parse(userStr);
-        if (userObj.id) setCustomerId(userObj.id);
-      }
-    } catch {}
-  }, []);
 
   // Fetch Menu
   useEffect(() => {
@@ -96,7 +95,6 @@ export default function Home() {
           .then(res => res.json())
           .then(data => {
             if (data.success && Array.isArray(data.data) && data.data.length > 0) {
-              setPendingReviews(data.data);
               setCurrentReviewItem(data.data[0]);
               setShowReviewModal(true);
             }
@@ -104,7 +102,6 @@ export default function Home() {
       }
     };
     
-    setLoading(true);
     loadData();
     loadPendingReviews();
     const interval = setInterval(() => { loadData(); loadPendingReviews(); }, 5000);
@@ -339,7 +336,7 @@ export default function Home() {
         <div className="space-y-4">
           {orderHistory.length === 0 ? (
             <div className="text-center py-12 text-gray-500 font-medium bg-gray-50 rounded-2xl border border-dashed border-gray-300">
-              You haven't placed any orders yet.
+              You haven&apos;t placed any orders yet.
             </div>
           ) : (
             orderHistory.map(order => (
@@ -421,7 +418,7 @@ export default function Home() {
           </div>
           {myReviews.length === 0 ? (
              <div className="text-center py-12 text-gray-500 font-medium bg-gray-50 rounded-2xl border border-dashed border-gray-300">
-               You haven't left any reviews yet. Complete an order to leave a review!
+               You haven&apos;t left any reviews yet. Complete an order to leave a review!
              </div>
           ) : (
              myReviews.map(review => (
@@ -431,7 +428,7 @@ export default function Home() {
                      <h3 className="font-bold text-gray-900 text-lg">{review.Name}</h3>
                      <span className="text-yellow-500 font-black tracking-widest">{'⭐'.repeat(review.Rating)}</span>
                    </div>
-                   <p className="text-sm text-gray-600 italic mb-3 bg-gray-50 p-3 rounded-lg border border-gray-100">"{review.Comment || 'No comment provided.'}"</p>
+                   <p className="text-sm text-gray-600 italic mb-3 bg-gray-50 p-3 rounded-lg border border-gray-100">&ldquo;{review.Comment || 'No comment provided.'}&rdquo;</p>
                    <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">From Order #{review.Order_Number} • {new Date(review.CreatedAt).toLocaleDateString()}</p>
                  </div>
                </div>

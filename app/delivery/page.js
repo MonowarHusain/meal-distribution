@@ -4,23 +4,31 @@ import { useState, useEffect } from 'react';
 export default function DeliveryDashboard() {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [riderId, setRiderId] = useState(null);
+  const [riderId] = useState(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const userStr = localStorage.getItem('user');
+        if (userStr) {
+          const userObj = JSON.parse(userStr);
+          if (userObj.id) return userObj.id;
+        }
+      } catch {}
+    }
+    return null;
+  });
   const [riders, setRiders] = useState([]);
   const [updatingOrderId, setUpdatingOrderId] = useState(null);
 
   const loadTasks = async () => {
     try {
-      const res = await fetch('/api/delivery');
+      const [res, ridersRes] = await Promise.all([
+        fetch('/api/delivery'),
+        fetch('/api/delivery/riders')
+      ]);
       const data = await res.json();
-      if (data.success) {
-        setTasks(data.data || []);
-      }
-      
-      const ridersRes = await fetch('/api/delivery/riders');
       const ridersData = await ridersRes.json();
-      if (ridersData.success) {
-        setRiders(ridersData.data || []);
-      }
+      if (data.success) setTasks(data.data || []);
+      if (ridersData.success) setRiders(ridersData.data || []);
     } catch (err) {
       console.error("Failed to load delivery data:", err);
     } finally {
@@ -29,17 +37,32 @@ export default function DeliveryDashboard() {
   };
 
   useEffect(() => {
-    try {
-      const userStr = localStorage.getItem('user');
-      if (userStr) {
-        const userObj = JSON.parse(userStr);
-        if (userObj.id) setRiderId(userObj.id);
+    let isMounted = true;
+    const fetchDeliveryData = async () => {
+      try {
+        const [res, ridersRes] = await Promise.all([
+          fetch('/api/delivery'),
+          fetch('/api/delivery/riders')
+        ]);
+        const data = await res.json();
+        const ridersData = await ridersRes.json();
+        if (isMounted) {
+          if (data.success) setTasks(data.data || []);
+          if (ridersData.success) setRiders(ridersData.data || []);
+        }
+      } catch (err) {
+        console.error("Failed to load delivery data:", err);
+      } finally {
+        if (isMounted) setLoading(false);
       }
-    } catch {}
+    };
 
-    loadTasks();
-    const interval = setInterval(loadTasks, 5000);
-    return () => clearInterval(interval);
+    fetchDeliveryData();
+    const interval = setInterval(fetchDeliveryData, 5000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
   }, []);
 
   const updateStatus = async (id) => {
@@ -174,7 +197,7 @@ export default function DeliveryDashboard() {
                 <div className="text-center py-24 bg-white rounded-3xl border-2 border-dashed border-gray-100">
                   <div className="bg-gray-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl opacity-50">😴</div>
                   <h3 className="text-xl font-bold text-gray-800">Relax, no tasks!</h3>
-                  <p className="text-gray-400 font-medium px-10 text-sm mt-1">We'll notify you once the kitchen finishes cooking a new order.</p>
+                  <p className="text-gray-400 font-medium px-10 text-sm mt-1">We&apos;ll notify you once the kitchen finishes cooking a new order.</p>
                 </div>
               )}
             </div>

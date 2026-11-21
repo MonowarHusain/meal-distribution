@@ -9,7 +9,7 @@ try {
     if (fs.existsSync('.env.local')) process.loadEnvFile('.env.local');
     else if (fs.existsSync('.env')) process.loadEnvFile('.env');
   }
-} catch (e) {
+} catch {
   // Ignore missing local env file
 }
 
