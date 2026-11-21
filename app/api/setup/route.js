@@ -7,7 +7,7 @@ export async function GET() {
     const result = await initializeDatabase(pool);
     return NextResponse.json({
       success: true,
-      message: 'Database ready! All tables, indexes, views, and demo seed data verified.',
+      message: 'Neon PostgreSQL Database ready! All tables, indexes, views, and demo seed data verified.',
       steps: result.steps,
       demoAccounts: [
         { role: 'Admin', email: 'admin@meal.com', password: 'admin123' },
@@ -22,7 +22,7 @@ export async function GET() {
     return NextResponse.json(
       {
         success: false,
-        error: 'Failed to initialize database',
+        error: 'Failed to initialize Neon PostgreSQL database',
         details: error.message
       },
       { status: 500 }

@@ -14,16 +14,16 @@ try {
 }
 
 async function migrate() {
-  console.log('🔄 Starting Meal Distribution database migration & setup...');
-  
-  const hasDbConfig = !!(process.env.DATABASE_URL || process.env.MYSQL_URL || process.env.DB_HOST || process.env.MYSQL_HOST);
+  console.log('🔄 Starting Meal Distribution Neon PostgreSQL migration & setup...');
+
+  const hasDbConfig = !!(process.env.DATABASE_URL || process.env.POSTGRES_URL);
   if (!hasDbConfig) {
-    console.warn('⚠️ Warning: No DATABASE_URL or DB_HOST found in environment. Using default fallback configuration.');
+    console.warn('⚠️ Warning: No DATABASE_URL found in environment. Please set DATABASE_URL in .env.local.');
   }
 
   try {
     const result = await initializeDatabase(pool);
-    console.log('✅ Migration completed successfully!');
+    console.log('✅ PostgreSQL Migration completed successfully!');
     result.steps.forEach(step => console.log(`   - ${step}`));
     console.log('\nDemo Logins Available:');
     console.log('   👑 Admin:    admin@meal.com    / admin123');
@@ -31,7 +31,7 @@ async function migrate() {
     console.log('   🛵 Delivery: delivery@meal.com / delivery123');
     console.log('   🍱 Customer: customer@meal.com / customer123\n');
   } catch (error) {
-    console.error('❌ Migration failed:', error.message);
+    console.error('❌ Migration failed:', error?.message || error?.code || String(error));
     process.exit(1);
   } finally {
     await pool.end();
