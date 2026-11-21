@@ -42,7 +42,7 @@ export default function Home() {
         const userObj = JSON.parse(userStr);
         if (userObj.id) setCustomerId(userObj.id);
       }
-    } catch(e) {}
+    } catch {}
   }, []);
 
   // Fetch Menu
@@ -50,10 +50,10 @@ export default function Home() {
     fetch('/api/menu')
       .then(res => res.json())
       .then(data => {
-        setMenuItems(data.data);
+        setMenuItems(data.data || []);
         setLoading(false);
       })
-      .catch(err => setLoading(false));
+      .catch(() => setLoading(false));
   }, []);
 
   // Fetch Order History & Profile
@@ -63,21 +63,21 @@ export default function Home() {
         fetch(`/api/customer/orders?customerId=${customerId}`)
           .then(res => res.json())
           .then(data => {
-            if (data.success) setOrderHistory(data.orders);
+            if (data.success) setOrderHistory(data.orders || []);
             setLoading(false);
           }).catch(() => setLoading(false));
       } else if (activeTab === 'profile') {
         fetch(`/api/customer/profile?customerId=${customerId}`)
           .then(res => res.json())
           .then(data => {
-            if (data.success) setProfile(data.profile);
+            if (data.success) setProfile(data.profile || {});
             setLoading(false);
           }).catch(() => setLoading(false));
       } else if (activeTab === 'reviews') {
         fetch(`/api/customer/reviews?customerId=${customerId}&type=history`)
           .then(res => res.json())
           .then(data => {
-            if (data.success) setMyReviews(data.data);
+            if (data.success) setMyReviews(data.data || []);
             setLoading(false);
           }).catch(() => setLoading(false));
       } else {
@@ -89,13 +89,13 @@ export default function Home() {
       if (!showReviewModal) {
         const snoozedUntil = localStorage.getItem('reviewSnoozedUntil');
         if (snoozedUntil && Date.now() < parseInt(snoozedUntil)) {
-          return; // Still snoozed
+          return;
         }
         
         fetch(`/api/customer/reviews?customerId=${customerId}&type=pending`)
           .then(res => res.json())
           .then(data => {
-            if (data.success && data.data.length > 0) {
+            if (data.success && Array.isArray(data.data) && data.data.length > 0) {
               setPendingReviews(data.data);
               setCurrentReviewItem(data.data[0]);
               setShowReviewModal(true);
@@ -131,7 +131,7 @@ export default function Home() {
   const triggerPayment = () => {
     if (cart.length === 0) return;
     setShowPaymentModal(true);
-    setIsCartOpen(false); // Close cart to focus on payment
+    setIsCartOpen(false);
   };
 
   const executeCheckout = async (e) => {
@@ -154,10 +154,13 @@ export default function Home() {
         setCart([]); setShowPaymentModal(false); setActiveTab('orders');
         setTimeout(() => alert(`Order Confirmed! Your order number is: ${result.orderNumber}`), 300);
       } else {
-        alert('Failed to place order.');
+        alert(result.message || 'Failed to place order.');
       }
-    } catch (error) { alert('Error connecting to server.'); }
-    setIsProcessingPayment(false);
+    } catch {
+      alert('Error connecting to server. Please try again.');
+    } finally {
+      setIsProcessingPayment(false);
+    }
   };
 
   // Profile Update
@@ -173,8 +176,11 @@ export default function Home() {
       const data = await res.json();
       if (data.success) alert("Profile updated successfully!");
       else alert("Failed to update profile.");
-    } catch (err) { alert("Network error."); }
-    setIsSavingProfile(false);
+    } catch {
+      alert("Network error.");
+    } finally {
+      setIsSavingProfile(false);
+    }
   };
 
   const dismissReviewPrompt = () => {
@@ -206,15 +212,16 @@ export default function Home() {
         
         // Refresh menu to update average ratings immediately
         if (activeTab === 'menu') {
-          fetch('/api/menu').then(r => r.json()).then(d => setMenuItems(d.data));
+          fetch('/api/menu').then(r => r.json()).then(d => setMenuItems(d.data || []));
         }
       } else {
         alert(data.message || "Failed to submit review.");
       }
-    } catch(err) {
+    } catch {
       alert("Error submitting review.");
+    } finally {
+      setIsSubmittingReview(false);
     }
-    setIsSubmittingReview(false);
   };
 
   // Order Details
@@ -225,7 +232,9 @@ export default function Home() {
       const res = await fetch(`/api/orders/${order.OrderID}`);
       const data = await res.json();
       if (data.success) setOrderDetails(data);
-    } catch (e) { console.error("Details fetch error:", e); }
+    } catch (e) {
+      console.error("Details fetch error:", e);
+    }
   };
 
   // UI Helpers
@@ -245,7 +254,7 @@ export default function Home() {
     <main className="p-8 max-w-5xl mx-auto font-sans relative pb-20">
       <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 border-b pb-4 gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Customer Dashboard</h1>
+          <h1 className="text-3xl font-black text-gray-900">Customer Dashboard</h1>
           <div className="flex gap-6 mt-4">
             {['menu', 'orders', 'profile', 'reviews'].map(tab => (
               <button 
@@ -263,7 +272,7 @@ export default function Home() {
           {activeTab === 'menu' && (
             <button 
               onClick={() => setIsCartOpen(true)}
-              className="relative bg-gray-100 text-gray-800 px-4 py-2 rounded-lg font-bold hover:bg-gray-200 transition"
+              className="relative bg-gray-100 text-gray-800 px-4 py-2 rounded-xl font-bold hover:bg-gray-200 transition"
             >
               Cart 🛒
               {cart.length > 0 && (
@@ -275,7 +284,7 @@ export default function Home() {
           )}
           <button 
             onClick={async () => { await fetch('/api/logout', { method: 'POST' }); localStorage.clear(); window.location.href = '/'; }}
-            className="bg-red-50 text-red-600 px-4 py-2 rounded-lg font-bold hover:bg-red-100 transition border border-red-100"
+            className="bg-red-50 text-red-600 px-4 py-2 rounded-xl font-bold hover:bg-red-100 transition border border-red-100 text-sm"
           >
             Logout
           </button>
@@ -286,33 +295,43 @@ export default function Home() {
 
       {/* MENU TAB */}
       {!loading && activeTab === 'menu' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {menuItems.map((item) => (
-            <div key={item.MenuItemID} className="border border-gray-200 p-5 rounded-2xl shadow-sm relative bg-white hover:shadow-md transition">
-              <span className="absolute top-3 right-3 font-mono text-xs bg-gray-100 px-2 py-1 rounded-md text-gray-600 font-bold">
-                {(item.Item_Type === 'Premium' ? 'P' : 'R') + String(item.MenuItemID).padStart(3, '0')}
-              </span>
-              <div className="text-4xl mb-4">{item.Item_Type === 'Premium' ? '⭐' : '🍲'}</div>
-              <h2 className="text-xl font-bold text-gray-800">{item.Name}</h2>
-              <div className="flex items-center gap-2 mt-1 mb-2">
-                 <span className="text-yellow-500 font-bold">⭐ {parseFloat(item.AvgRating || 0).toFixed(1)}</span>
-                 <span className="text-xs text-gray-400 font-bold">({item.ReviewCount || 0} reviews)</span>
-              </div>
-              <span className={`inline-block mb-4 text-xs font-bold px-2 py-1 rounded ${item.Item_Type === 'Premium' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-600'}`}>
-                {item.Item_Type}
-              </span>
-              <div className="flex justify-between items-center mt-auto pt-4 border-t border-gray-100">
-                <span className="text-2xl font-black text-gray-900">৳{item.Price}</span>
-                <button
-                  onClick={() => addToCart(item)}
-                  className="bg-blue-600 text-white font-bold py-2 px-4 rounded-xl hover:bg-blue-700 transition transform hover:-translate-y-0.5"
-                >
-                  Add
-                </button>
-              </div>
+        <>
+          {menuItems.length === 0 ? (
+            <div className="text-center py-16 bg-white rounded-3xl border-2 border-dashed border-gray-200 p-8">
+              <div className="text-4xl mb-3">🍲</div>
+              <h3 className="text-xl font-bold text-gray-700">No menu items available right now</h3>
+              <p className="text-gray-400 text-sm mt-1">Please check back soon or run database initialization.</p>
             </div>
-          ))}
-        </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {menuItems.map((item) => (
+                <div key={item.MenuItemID} className="border border-gray-200 p-5 rounded-2xl shadow-sm relative bg-white hover:shadow-md transition">
+                  <span className="absolute top-3 right-3 font-mono text-xs bg-gray-100 px-2 py-1 rounded-md text-gray-600 font-bold">
+                    {(item.Item_Type === 'Premium' ? 'P' : 'R') + String(item.MenuItemID).padStart(3, '0')}
+                  </span>
+                  <div className="text-4xl mb-4">{item.Item_Type === 'Premium' ? '⭐' : '🍲'}</div>
+                  <h2 className="text-xl font-bold text-gray-800">{item.Name}</h2>
+                  <div className="flex items-center gap-2 mt-1 mb-2">
+                     <span className="text-yellow-500 font-bold">⭐ {parseFloat(item.AvgRating || 0).toFixed(1)}</span>
+                     <span className="text-xs text-gray-400 font-bold">({item.ReviewCount || 0} reviews)</span>
+                  </div>
+                  <span className={`inline-block mb-4 text-xs font-bold px-2 py-1 rounded ${item.Item_Type === 'Premium' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-600'}`}>
+                    {item.Item_Type}
+                  </span>
+                  <div className="flex justify-between items-center mt-auto pt-4 border-t border-gray-100">
+                    <span className="text-2xl font-black text-gray-900">৳{item.Price}</span>
+                    <button
+                      onClick={() => addToCart(item)}
+                      className="bg-blue-600 text-white font-bold py-2 px-4 rounded-xl hover:bg-blue-700 transition transform hover:-translate-y-0.5"
+                    >
+                      Add
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
       )}
 
       {/* MY ORDERS TAB */}
@@ -424,7 +443,7 @@ export default function Home() {
       {/* Review Prompt Modal */}
       {showReviewModal && currentReviewItem && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col transform transition-all scale-100 opacity-100">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col">
             <div className="p-6 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50 relative overflow-hidden">
               <div className="absolute top-0 right-0 p-4 opacity-10 text-6xl">⭐</div>
               <h3 className="font-black text-2xl text-gray-900 mb-1 relative z-10">How was your food?</h3>
@@ -470,7 +489,7 @@ export default function Home() {
                 ></textarea>
               </div>
 
-              <button type="submit" disabled={isSubmittingReview} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-4 rounded-xl shadow-[0_4px_14px_0_rgba(37,99,235,0.39)] transition disabled:opacity-50">
+              <button type="submit" disabled={isSubmittingReview} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-4 rounded-xl shadow-lg transition disabled:opacity-50">
                 {isSubmittingReview ? 'Submitting...' : 'Submit Review'}
               </button>
               
@@ -484,7 +503,7 @@ export default function Home() {
 
       {/* Order Details Modal Overlay */}
       {selectedOrder && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
             <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
               <div>
@@ -505,7 +524,7 @@ export default function Home() {
                   <div>
                     <h4 className="font-bold text-gray-800 text-sm uppercase tracking-wider mb-3">Items Ordered</h4>
                     <div className="space-y-3">
-                      {orderDetails.items.map((item, idx) => (
+                      {(orderDetails.items || []).map((item, idx) => (
                         <div key={idx} className="flex justify-between items-center p-3 bg-gray-50 rounded-xl border border-gray-100">
                           <div className="flex items-center gap-3">
                             <span className="font-bold text-blue-600 bg-blue-100 w-8 h-8 flex items-center justify-center rounded-lg">{item.Quantity}x</span>
@@ -521,7 +540,7 @@ export default function Home() {
                   <div>
                     <h4 className="font-bold text-gray-800 text-sm uppercase tracking-wider mb-3 pt-4 border-t border-gray-100">Order Timeline</h4>
                     <div className="space-y-4 relative before:absolute before:inset-0 before:ml-2.5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-blue-200 before:to-transparent">
-                      {orderDetails.timeline.map((event, idx) => (
+                      {(orderDetails.timeline || []).map((event, idx) => (
                         <div key={idx} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
                           <div className="flex items-center justify-center w-6 h-6 rounded-full border-4 border-white bg-blue-500 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2"></div>
                           <div className="w-[calc(100%-3rem)] md:w-[calc(50%-1.5rem)] p-3 rounded-lg border border-gray-100 bg-white shadow-sm">
@@ -547,7 +566,7 @@ export default function Home() {
       )}
 
       {/* Cart Sidebar Overlay */}
-      {isCartOpen && <div className="fixed inset-0 z-40 bg-transparent" onClick={() => setIsCartOpen(false)} />}
+      {isCartOpen && <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-xs" onClick={() => setIsCartOpen(false)} />}
       
       {/* Cart Sidebar */}
       <div className={`fixed top-0 right-0 h-full w-full md:w-96 bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-in-out flex flex-col ${isCartOpen ? 'translate-x-0' : 'translate-x-full'}`}>

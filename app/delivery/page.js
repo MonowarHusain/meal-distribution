@@ -6,6 +6,7 @@ export default function DeliveryDashboard() {
   const [loading, setLoading] = useState(true);
   const [riderId, setRiderId] = useState(null);
   const [riders, setRiders] = useState([]);
+  const [updatingOrderId, setUpdatingOrderId] = useState(null);
 
   const loadTasks = async () => {
     try {
@@ -21,7 +22,7 @@ export default function DeliveryDashboard() {
         setRiders(ridersData.data || []);
       }
     } catch (err) {
-      console.error("Failed to load delivery data");
+      console.error("Failed to load delivery data:", err);
     } finally {
       setLoading(false);
     }
@@ -34,7 +35,7 @@ export default function DeliveryDashboard() {
         const userObj = JSON.parse(userStr);
         if (userObj.id) setRiderId(userObj.id);
       }
-    } catch(e) {}
+    } catch {}
 
     loadTasks();
     const interval = setInterval(loadTasks, 5000);
@@ -42,14 +43,24 @@ export default function DeliveryDashboard() {
   }, []);
 
   const updateStatus = async (id) => {
+    setUpdatingOrderId(id);
     try {
       const res = await fetch('/api/delivery', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ orderId: id, deliverymanId: riderId }),
       });
-      if (res.ok) loadTasks();
-    } catch (err) {}
+      if (res.ok) {
+        await loadTasks();
+      } else {
+        const data = await res.json();
+        alert(data.message || "Failed to update delivery status");
+      }
+    } catch {
+      alert("Network error updating delivery status");
+    } finally {
+      setUpdatingOrderId(null);
+    }
   };
 
   const getStatusBadge = (status) => {
@@ -65,7 +76,7 @@ export default function DeliveryDashboard() {
       {/* Header */}
       <nav className="bg-white border-b shadow-sm px-6 py-4 flex justify-between items-center sticky top-0 z-30">
         <div className="flex items-center gap-3">
-          <div className="bg-green-600 p-2 rounded-xl shadow-lg shadow-green-200">
+          <div className="bg-green-600 p-2.5 rounded-2xl shadow-lg shadow-green-200">
             <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg>
           </div>
           <div>
@@ -91,14 +102,14 @@ export default function DeliveryDashboard() {
 
           <button 
             onClick={async () => { 
-            await fetch('/api/logout', { method: 'POST' });
-            localStorage.clear(); 
-            window.location.href = '/'; 
-          }}
-          className="bg-gray-100 hover:bg-red-50 hover:text-red-600 text-gray-600 px-4 py-2 rounded-xl font-bold text-sm transition-all border border-transparent hover:border-red-100"
-        >
-          Logout
-        </button>
+              await fetch('/api/logout', { method: 'POST' });
+              localStorage.clear(); 
+              window.location.href = '/'; 
+            }}
+            className="bg-gray-100 hover:bg-red-50 hover:text-red-600 text-gray-600 px-4 py-2 rounded-xl font-bold text-sm transition-all border border-transparent hover:border-red-100"
+          >
+            Logout
+          </button>
         </div>
       </nav>
 
@@ -108,7 +119,7 @@ export default function DeliveryDashboard() {
         ) : (
           <>
             <div className="flex items-center justify-between">
-              <h2 className="text-sm font-black text-gray-400 uppercase tracking-widest">Your Task Queue ({tasks.length})</h2>
+              <h2 className="text-xs font-black text-gray-400 uppercase tracking-widest">Your Task Queue ({tasks.length})</h2>
               <button onClick={loadTasks} className="text-xs font-bold text-blue-600 hover:underline">↻ Refresh</button>
             </div>
 
@@ -125,7 +136,7 @@ export default function DeliveryDashboard() {
 
                   <div className="space-y-4 mb-6">
                     <div className="flex items-start gap-4">
-                      <div className="bg-gray-100 p-2 rounded-xl mt-1"><svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg></div>
+                      <div className="bg-gray-100 p-2.5 rounded-xl mt-1"><svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg></div>
                       <div>
                         <p className="text-lg font-bold text-gray-900">{order.CustomerName}</p>
                         <p className="text-sm font-bold text-blue-600">📞 {order.Phone}</p>
@@ -133,13 +144,13 @@ export default function DeliveryDashboard() {
                     </div>
 
                     <div className="flex items-start gap-4">
-                      <div className="bg-gray-100 p-2 rounded-xl mt-1"><svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg></div>
+                      <div className="bg-gray-100 p-2.5 rounded-xl mt-1"><svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg></div>
                       <div>
-                        <p className="text-sm font-bold text-gray-500 uppercase text-[10px] tracking-widest mb-1">Delivery Destination</p>
+                        <p className="text-sm font-bold text-gray-400 uppercase text-[10px] tracking-widest mb-1">Delivery Destination</p>
                         <p className="text-gray-800 font-semibold leading-snug">
                           {order.House && `House ${order.House}, `}
                           {order.Road && `Road ${order.Road}, `}
-                          {order.Street}
+                          {order.Street || 'Address on file'}
                         </p>
                       </div>
                     </div>
@@ -147,23 +158,23 @@ export default function DeliveryDashboard() {
 
                   <button 
                     onClick={() => updateStatus(order.OrderID)}
-                    disabled={order.Status === 'Cooking_Done' && isOccupied}
-                    className={`w-full py-4 rounded-2xl font-black text-lg shadow-lg transition transform active:scale-95 ${
+                    disabled={(order.Status === 'Cooking_Done' && isOccupied) || updatingOrderId === order.OrderID}
+                    className={`w-full py-4 rounded-2xl font-black text-lg shadow-lg transition transform active:scale-95 disabled:opacity-50 ${
                       order.Status === 'Cooking_Done' 
                       ? isOccupied ? 'bg-gray-300 text-gray-500 cursor-not-allowed shadow-none' : 'bg-orange-500 hover:bg-orange-600 text-white shadow-orange-100' 
                       : 'bg-green-600 hover:bg-green-700 text-white shadow-green-100'
                     }`}
                   >
-                    {order.Status === 'Cooking_Done' ? (isOccupied ? 'Finish current delivery first' : 'Confirm Pick Up') : 'Mark as Delivered'}
+                    {updatingOrderId === order.OrderID ? 'Updating...' : order.Status === 'Cooking_Done' ? (isOccupied ? 'Finish current delivery first' : 'Confirm Pick Up') : 'Mark as Delivered'}
                   </button>
                 </div>
               ))}
               
               {tasks.length === 0 && (
-                <div className="text-center py-24 bg-white rounded-[40px] border-2 border-dashed border-gray-100">
+                <div className="text-center py-24 bg-white rounded-3xl border-2 border-dashed border-gray-100">
                   <div className="bg-gray-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl opacity-50">😴</div>
                   <h3 className="text-xl font-bold text-gray-800">Relax, no tasks!</h3>
-                  <p className="text-gray-400 font-medium px-10">We'll notify you once the kitchen finishes cooking a new order.</p>
+                  <p className="text-gray-400 font-medium px-10 text-sm mt-1">We'll notify you once the kitchen finishes cooking a new order.</p>
                 </div>
               )}
             </div>
