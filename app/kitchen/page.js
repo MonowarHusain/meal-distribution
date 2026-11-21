@@ -62,12 +62,12 @@ export default function KitchenDashboard() {
       if (data.success) {
         if (newStatus === 'Cooking_Done') {
           // Remove from kitchen view completely
-          setOrders(prev => prev.filter(o => o.OrderID !== orderId));
+          setOrders(prev => prev.filter(o => (o.OrderID !== orderId && o.orderid !== orderId)));
         } else {
           // Move to Cooking list visually
-          setOrders(prev => prev.map(o => o.OrderID === orderId ? { ...o, LatestStatus: newStatus } : o));
+          setOrders(prev => prev.map(o => (o.OrderID === orderId || o.orderid === orderId) ? { ...o, LatestStatus: newStatus, lateststatus: newStatus } : o));
         }
-        if (selectedOrder && selectedOrder.OrderID === orderId) {
+        if (selectedOrder && (selectedOrder.OrderID === orderId || selectedOrder.orderid === orderId)) {
           setSelectedOrder(null);
         }
       } else {
@@ -84,7 +84,8 @@ export default function KitchenDashboard() {
     setSelectedOrder(order);
     setOrderDetails(null);
     try {
-      const res = await fetch(`/api/orders/${order.OrderID}`);
+      const orderId = order.OrderID || order.orderid;
+      const res = await fetch(`/api/orders/${orderId}`);
       const data = await res.json();
       if (data.success) setOrderDetails(data);
     } catch (e) {
@@ -122,7 +123,7 @@ export default function KitchenDashboard() {
       const res = await fetch(`/api/menu?id=${id}`, { method: 'DELETE' });
       const data = await res.json();
       if (data.success) {
-        setMenuItems(prev => prev.filter(i => i.MenuItemID !== id));
+        setMenuItems(prev => prev.filter(i => (i.MenuItemID !== id && i.menuitemid !== id)));
       } else {
         alert(data.message || "Failed to delete item");
       }
@@ -131,8 +132,8 @@ export default function KitchenDashboard() {
     }
   };
 
-  const pendingOrders = orders.filter(o => o.LatestStatus === 'Pending');
-  const cookingOrders = orders.filter(o => o.LatestStatus === 'Kitchen_Accepted');
+  const pendingOrders = orders.filter(o => (o.LatestStatus || o.lateststatus) === 'Pending');
+  const cookingOrders = orders.filter(o => (o.LatestStatus || o.lateststatus) === 'Kitchen_Accepted');
 
   return (
     <main className="min-h-screen bg-gray-50 pb-12 font-sans">
@@ -179,21 +180,27 @@ export default function KitchenDashboard() {
                     {pendingOrders.length === 0 ? (
                       <p className="text-gray-400 text-center py-16 font-medium border-2 border-dashed rounded-2xl">No new orders waiting.</p>
                     ) : null}
-                    {pendingOrders.map(order => (
-                      <div key={order.OrderID} className="border border-orange-200 bg-orange-50/30 rounded-2xl p-5 hover:shadow-md transition">
-                        <div className="flex justify-between items-start mb-3">
-                          <div>
-                            <h3 className="text-xl font-black text-gray-900">#{order.Order_Number}</h3>
-                            <p className="text-xs text-gray-500 font-bold mt-1">Customer: {order.CustomerName}</p>
+                    {pendingOrders.map(order => {
+                      const id = order.OrderID || order.orderid;
+                      const orderNum = order.Order_Number || order.order_number;
+                      const custName = order.CustomerName || order.customername;
+                      const totalPrice = order.Total_Price || order.total_price;
+                      return (
+                        <div key={id} className="border border-orange-200 bg-orange-50/30 rounded-2xl p-5 hover:shadow-md transition">
+                          <div className="flex justify-between items-start mb-3">
+                            <div>
+                              <h3 className="text-xl font-black text-gray-900">#{orderNum}</h3>
+                              <p className="text-xs text-gray-500 font-bold mt-1">Customer: {custName}</p>
+                            </div>
+                            <span className="text-lg font-black text-orange-600">৳{totalPrice}</span>
                           </div>
-                          <span className="text-lg font-black text-orange-600">৳{order.Total_Price}</span>
+                          <div className="flex gap-3 mt-4">
+                            <button onClick={() => viewOrderDetails(order)} className="flex-1 bg-white border border-gray-200 hover:bg-gray-50 text-gray-800 font-bold py-2.5 rounded-xl transition text-sm">Inspect</button>
+                            <button disabled={isUpdatingOrder} onClick={() => updateOrderStatus(id, 'Kitchen_Accepted')} className="flex-1 bg-orange-500 hover:bg-orange-600 text-white font-bold py-2.5 rounded-xl shadow-sm hover:shadow transition hover:-translate-y-0.5 text-sm disabled:opacity-50">Accept & Cook</button>
+                          </div>
                         </div>
-                        <div className="flex gap-3 mt-4">
-                          <button onClick={() => viewOrderDetails(order)} className="flex-1 bg-white border border-gray-200 hover:bg-gray-50 text-gray-800 font-bold py-2.5 rounded-xl transition text-sm">Inspect</button>
-                          <button disabled={isUpdatingOrder} onClick={() => updateOrderStatus(order.OrderID, 'Kitchen_Accepted')} className="flex-1 bg-orange-500 hover:bg-orange-600 text-white font-bold py-2.5 rounded-xl shadow-sm hover:shadow transition hover:-translate-y-0.5 text-sm disabled:opacity-50">Accept & Cook</button>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -207,21 +214,26 @@ export default function KitchenDashboard() {
                     {cookingOrders.length === 0 ? (
                       <p className="text-gray-400 text-center py-16 font-medium border-2 border-dashed rounded-2xl">Nothing currently cooking.</p>
                     ) : null}
-                    {cookingOrders.map(order => (
-                      <div key={order.OrderID} className="border border-blue-200 bg-blue-50/30 rounded-2xl p-5 hover:shadow-md transition">
-                        <div className="flex justify-between items-start mb-3">
-                          <div>
-                            <h3 className="text-xl font-black text-gray-900">#{order.Order_Number}</h3>
-                            <p className="text-xs text-gray-500 font-bold mt-1">Customer: {order.CustomerName}</p>
+                    {cookingOrders.map(order => {
+                      const id = order.OrderID || order.orderid;
+                      const orderNum = order.Order_Number || order.order_number;
+                      const custName = order.CustomerName || order.customername;
+                      return (
+                        <div key={id} className="border border-blue-200 bg-blue-50/30 rounded-2xl p-5 hover:shadow-md transition">
+                          <div className="flex justify-between items-start mb-3">
+                            <div>
+                              <h3 className="text-xl font-black text-gray-900">#{orderNum}</h3>
+                              <p className="text-xs text-gray-500 font-bold mt-1">Customer: {custName}</p>
+                            </div>
+                            <button onClick={() => viewOrderDetails(order)} className="text-sm text-blue-600 hover:underline font-bold">View Items</button>
                           </div>
-                          <button onClick={() => viewOrderDetails(order)} className="text-sm text-blue-600 hover:underline font-bold">View Items</button>
+                          <button disabled={isUpdatingOrder} onClick={() => updateOrderStatus(id, 'Cooking_Done')} className="w-full mt-4 bg-green-500 hover:bg-green-600 text-white font-bold py-3 rounded-xl shadow-sm hover:shadow transition hover:-translate-y-0.5 flex justify-center items-center gap-2 disabled:opacity-50">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+                            Mark Ready for Delivery
+                          </button>
                         </div>
-                        <button disabled={isUpdatingOrder} onClick={() => updateOrderStatus(order.OrderID, 'Cooking_Done')} className="w-full mt-4 bg-green-500 hover:bg-green-600 text-white font-bold py-3 rounded-xl shadow-sm hover:shadow transition hover:-translate-y-0.5 flex justify-center items-center gap-2 disabled:opacity-50">
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
-                          Mark Ready for Delivery
-                        </button>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               </div>
@@ -267,23 +279,29 @@ export default function KitchenDashboard() {
                   <div className="text-center py-12 text-gray-400 font-semibold animate-pulse">Loading menu items...</div>
                 ) : (
                   <div className="space-y-3">
-                    {menuItems.map(item => (
-                      <div key={item.MenuItemID} className="flex justify-between items-center p-4 border border-gray-100 rounded-2xl hover:border-blue-200 transition bg-gray-50 group">
-                        <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 bg-white rounded-xl shadow-sm border border-gray-100 flex justify-center items-center text-xl">{item.Item_Type === 'Premium' ? '⭐' : '🍲'}</div>
-                          <div>
-                            <h3 className="font-bold text-gray-800">{item.Name}</h3>
-                            <span className={`text-xs font-bold px-2 py-0.5 rounded ${item.Item_Type === 'Premium' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-200 text-gray-600'}`}>{item.Item_Type}</span>
+                    {menuItems.map(item => {
+                      const id = item.MenuItemID || item.menuitemid;
+                      const name = item.Name || item.name;
+                      const price = item.Price || item.price;
+                      const type = item.Item_Type || item.item_type;
+                      return (
+                        <div key={id} className="flex justify-between items-center p-4 border border-gray-100 rounded-2xl hover:border-blue-200 transition bg-gray-50 group">
+                          <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 bg-white rounded-xl shadow-sm border border-gray-100 flex justify-center items-center text-xl">{type === 'Premium' ? '⭐' : '🍲'}</div>
+                            <div>
+                              <h3 className="font-bold text-gray-800">{name}</h3>
+                              <span className={`text-xs font-bold px-2 py-0.5 rounded ${type === 'Premium' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-200 text-gray-600'}`}>{type}</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-6">
+                            <span className="font-black text-gray-900 text-lg">৳{price}</span>
+                            <button onClick={() => handleDeleteItem(id)} className="bg-red-50 text-red-500 hover:bg-red-500 hover:text-white p-2 rounded-xl transition opacity-0 group-hover:opacity-100 text-sm font-bold">
+                              ✕
+                            </button>
                           </div>
                         </div>
-                        <div className="flex items-center gap-6">
-                          <span className="font-black text-gray-900 text-lg">৳{item.Price}</span>
-                          <button onClick={() => handleDeleteItem(item.MenuItemID)} className="bg-red-50 text-red-500 hover:bg-red-500 hover:text-white p-2 rounded-xl transition opacity-0 group-hover:opacity-100 text-sm font-bold">
-                            ✕
-                          </button>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                     {menuItems.length === 0 && (
                       <div className="text-center py-16 text-gray-400 font-medium border-2 border-dashed rounded-2xl">
                         No dishes currently on the menu. Add one using the form on the left!
@@ -304,8 +322,8 @@ export default function KitchenDashboard() {
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
             <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
               <div>
-                <h3 className="font-black text-2xl text-gray-900">Order #{selectedOrder.Order_Number}</h3>
-                <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">{selectedOrder.LatestStatus.replace('_', ' ')}</span>
+                <h3 className="font-black text-2xl text-gray-900">Order #{selectedOrder.Order_Number || selectedOrder.order_number}</h3>
+                <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">{(selectedOrder.LatestStatus || selectedOrder.lateststatus || '').replace('_', ' ')}</span>
               </div>
               <button onClick={() => setSelectedOrder(null)} className="text-gray-400 hover:text-red-500 text-3xl font-bold transition">&times;</button>
             </div>
@@ -321,8 +339,8 @@ export default function KitchenDashboard() {
                       {(orderDetails.items || []).map((item, idx) => (
                         <div key={idx} className="flex justify-between items-center p-4 bg-gray-50 rounded-2xl border border-gray-100">
                           <div className="flex items-center gap-4">
-                            <span className="font-black text-xl text-orange-600 bg-orange-100 w-10 h-10 flex items-center justify-center rounded-xl">{item.Quantity}x</span>
-                            <span className="font-bold text-gray-800 text-lg">{item.Name}</span>
+                            <span className="font-black text-xl text-orange-600 bg-orange-100 w-10 h-10 flex items-center justify-center rounded-xl">{item.Quantity || item.quantity}x</span>
+                            <span className="font-bold text-gray-800 text-lg">{item.Name || item.name}</span>
                           </div>
                         </div>
                       ))}
@@ -336,11 +354,11 @@ export default function KitchenDashboard() {
             </div>
             
             <div className="p-6 bg-gray-50 border-t border-gray-100 flex gap-4">
-               {selectedOrder.LatestStatus === 'Pending' && (
-                 <button disabled={isUpdatingOrder} onClick={() => updateOrderStatus(selectedOrder.OrderID, 'Kitchen_Accepted')} className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3.5 rounded-xl transition disabled:opacity-50">Accept & Cook</button>
+               {(selectedOrder.LatestStatus || selectedOrder.lateststatus) === 'Pending' && (
+                 <button disabled={isUpdatingOrder} onClick={() => updateOrderStatus(selectedOrder.OrderID || selectedOrder.orderid, 'Kitchen_Accepted')} className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3.5 rounded-xl transition disabled:opacity-50">Accept & Cook</button>
                )}
-               {selectedOrder.LatestStatus === 'Kitchen_Accepted' && (
-                 <button disabled={isUpdatingOrder} onClick={() => updateOrderStatus(selectedOrder.OrderID, 'Cooking_Done')} className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3.5 rounded-xl transition disabled:opacity-50">Mark Ready</button>
+               {(selectedOrder.LatestStatus || selectedOrder.lateststatus) === 'Kitchen_Accepted' && (
+                 <button disabled={isUpdatingOrder} onClick={() => updateOrderStatus(selectedOrder.OrderID || selectedOrder.orderid, 'Cooking_Done')} className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3.5 rounded-xl transition disabled:opacity-50">Mark Ready</button>
                )}
             </div>
           </div>

@@ -55,7 +55,7 @@ export default function AdminDashboard() {
       if (result.success) {
         setData(prev => ({
           ...prev,
-          users: prev.users.map(u => u.CustomerID === customerId ? { ...u, Role: newRole } : u)
+          users: prev.users.map(u => (u.CustomerID === customerId || u.customerid === customerId) ? { ...u, Role: newRole, role: newRole } : u)
         }));
       } else {
         alert(result.message || "Failed to update role");
@@ -78,12 +78,12 @@ export default function AdminDashboard() {
       const result = await res.json();
       if (result.success) {
         setData(prev => {
-          const updatedPayments = prev.payments.map(p => p.Payment_ID === paymentId ? { ...p, Payment_Status: newPaymentStatus } : p);
+          const updatedPayments = prev.payments.map(p => (p.Payment_ID === paymentId || p.payment_id === paymentId) ? { ...p, Payment_Status: newPaymentStatus, payment_status: newPaymentStatus } : p);
           
           // Recalculate Total Revenue based on Completed payments
           const newTotalRevenue = updatedPayments
-            .filter(p => p.Payment_Status === 'Completed')
-            .reduce((sum, p) => sum + parseFloat(p.Amount || 0), 0)
+            .filter(p => (p.Payment_Status || p.payment_status) === 'Completed')
+            .reduce((sum, p) => sum + parseFloat(p.Amount || p.amount || 0), 0)
             .toFixed(2);
 
           return {
@@ -132,7 +132,8 @@ export default function AdminDashboard() {
     setSelectedOrder(order);
     setOrderDetails(null);
     try {
-      const res = await fetch(`/api/orders/${order.OrderID}`);
+      const orderId = order.OrderID || order.orderid;
+      const res = await fetch(`/api/orders/${orderId}`);
       const apiData = await res.json();
       if (apiData.success) setOrderDetails(apiData);
     } catch (e) {
@@ -227,24 +228,30 @@ export default function AdminDashboard() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {data.users.map(user => (
-                      <tr key={user.CustomerID} className="hover:bg-gray-50">
-                        <td className="p-4 font-mono text-sm text-gray-500">#{user.CustomerID}</td>
-                        <td className="p-4 font-bold">{user.Name}</td>
-                        <td className="p-4 text-gray-600">{user.Email}</td>
-                        <td className="p-4">
-                          <select value={user.Role} onChange={(e) => handleRoleChange(user.CustomerID, e.target.value)} className="font-bold text-sm px-3 py-1.5 rounded-lg border outline-none bg-white">
-                            <option value="Customer">Customer</option>
-                            <option value="Kitchen">Kitchen</option>
-                            <option value="Delivery">Delivery</option>
-                            <option value="Admin">Admin</option>
-                          </select>
-                        </td>
-                        <td className="p-4 text-right">
-                          <button onClick={() => setSelectedUser(user)} className="text-blue-600 hover:text-blue-800 font-bold hover:underline text-sm">View Details</button>
-                        </td>
-                      </tr>
-                    ))}
+                    {data.users.map(user => {
+                      const id = user.CustomerID || user.customerid;
+                      const name = user.Name || user.name;
+                      const email = user.Email || user.email;
+                      const role = user.Role || user.role || 'Customer';
+                      return (
+                        <tr key={id} className="hover:bg-gray-50">
+                          <td className="p-4 font-mono text-sm text-gray-500">#{id}</td>
+                          <td className="p-4 font-bold">{name}</td>
+                          <td className="p-4 text-gray-600">{email}</td>
+                          <td className="p-4">
+                            <select value={role} onChange={(e) => handleRoleChange(id, e.target.value)} className="font-bold text-sm px-3 py-1.5 rounded-lg border outline-none bg-white">
+                              <option value="Customer">Customer</option>
+                              <option value="Kitchen">Kitchen</option>
+                              <option value="Delivery">Delivery</option>
+                              <option value="Admin">Admin</option>
+                            </select>
+                          </td>
+                          <td className="p-4 text-right">
+                            <button onClick={() => setSelectedUser(user)} className="text-blue-600 hover:text-blue-800 font-bold hover:underline text-sm">View Details</button>
+                          </td>
+                        </tr>
+                      );
+                    })}
                     {data.users.length === 0 && (
                       <tr>
                         <td colSpan="5" className="p-12 text-center text-gray-400 font-bold">No registered users in the database.</td>
@@ -266,18 +273,26 @@ export default function AdminDashboard() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {data.orders.map(order => (
-                    <tr key={order.OrderID} className="hover:bg-gray-50">
-                      <td className="p-4 font-bold">{order.Order_Number}</td>
-                      <td suppressHydrationWarning className="p-4 text-gray-600 text-sm">{new Date(order.Order_Date).toLocaleDateString()}</td>
-                      <td className="p-4 font-semibold">{order.CustomerName}</td>
-                      <td className="p-4 font-black text-blue-600">৳{order.Total_Price}</td>
-                      <td className="p-4"><span className={`px-3 py-1 rounded-full text-xs font-bold ${getStatusColor(order.Status)}`}>{order.Status.replace('_', ' ')}</span></td>
-                      <td className="p-4 text-right">
-                        <button onClick={() => viewOrderDetails(order)} className="text-blue-600 hover:text-blue-800 font-bold hover:underline text-sm">View Details</button>
-                      </td>
-                    </tr>
-                  ))}
+                  {data.orders.map(order => {
+                    const id = order.OrderID || order.orderid;
+                    const orderNum = order.Order_Number || order.order_number;
+                    const orderDate = order.Order_Date || order.order_date;
+                    const customerName = order.CustomerName || order.customername;
+                    const totalPrice = order.Total_Price || order.total_price;
+                    const status = order.Status || order.status || 'Pending';
+                    return (
+                      <tr key={id} className="hover:bg-gray-50">
+                        <td className="p-4 font-bold">{orderNum}</td>
+                        <td suppressHydrationWarning className="p-4 text-gray-600 text-sm">{new Date(orderDate).toLocaleDateString()}</td>
+                        <td className="p-4 font-semibold">{customerName}</td>
+                        <td className="p-4 font-black text-blue-600">৳{totalPrice}</td>
+                        <td className="p-4"><span className={`px-3 py-1 rounded-full text-xs font-bold ${getStatusColor(status)}`}>{status.replace('_', ' ')}</span></td>
+                        <td className="p-4 text-right">
+                          <button onClick={() => viewOrderDetails(order)} className="text-blue-600 hover:text-blue-800 font-bold hover:underline text-sm">View Details</button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                   {data.orders.length === 0 && (
                     <tr>
                       <td colSpan="6" className="p-12 text-center text-gray-400 font-bold">No orders recorded in the system yet.</td>
@@ -298,26 +313,35 @@ export default function AdminDashboard() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {data.payments.map(payment => (
-                    <tr key={payment.Payment_ID} className="hover:bg-gray-50">
-                      <td className="p-4 font-bold">{payment.Order_Number}</td>
-                      <td className="p-4 font-semibold">{payment.CustomerName}</td>
-                      <td className="p-4 font-bold text-gray-700">{payment.Payment_Method}</td>
-                      <td className="p-4 font-black text-blue-600">৳{payment.Amount}</td>
-                      <td suppressHydrationWarning className="p-4 text-gray-600 text-sm">{new Date(payment.Payment_Date).toLocaleDateString()}</td>
-                      <td className="p-4">
-                        <select 
-                          value={payment.Payment_Status} 
-                          onChange={(e) => handlePaymentStatusChange(payment.Payment_ID, e.target.value)}
-                          className={`font-bold text-sm px-3 py-1.5 rounded-lg border outline-none ${payment.Payment_Status === 'Completed' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-yellow-50 text-yellow-700 border-yellow-200'}`}
-                        >
-                          <option value="Pending">Pending</option>
-                          <option value="Completed">Completed</option>
-                          <option value="Failed">Failed</option>
-                        </select>
-                      </td>
-                    </tr>
-                  ))}
+                  {data.payments.map(payment => {
+                    const id = payment.Payment_ID || payment.payment_id;
+                    const orderNum = payment.Order_Number || payment.order_number;
+                    const customerName = payment.CustomerName || payment.customername;
+                    const method = payment.Payment_Method || payment.payment_method;
+                    const amount = payment.Amount || payment.amount;
+                    const date = payment.Payment_Date || payment.payment_date;
+                    const status = payment.Payment_Status || payment.payment_status || 'Pending';
+                    return (
+                      <tr key={id} className="hover:bg-gray-50">
+                        <td className="p-4 font-bold">{orderNum}</td>
+                        <td className="p-4 font-semibold">{customerName}</td>
+                        <td className="p-4 font-bold text-gray-700">{method}</td>
+                        <td className="p-4 font-black text-blue-600">৳{amount}</td>
+                        <td suppressHydrationWarning className="p-4 text-gray-600 text-sm">{new Date(date).toLocaleDateString()}</td>
+                        <td className="p-4">
+                          <select 
+                            value={status} 
+                            onChange={(e) => handlePaymentStatusChange(id, e.target.value)}
+                            className={`font-bold text-sm px-3 py-1.5 rounded-lg border outline-none ${status === 'Completed' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-yellow-50 text-yellow-700 border-yellow-200'}`}
+                          >
+                            <option value="Pending">Pending</option>
+                            <option value="Completed">Completed</option>
+                            <option value="Failed">Failed</option>
+                          </select>
+                        </td>
+                      </tr>
+                    );
+                  })}
                   {data.payments.length === 0 && (
                     <tr>
                       <td colSpan="6" className="p-12 text-center text-gray-400 font-bold">No payment transactions recorded yet.</td>
@@ -342,27 +366,31 @@ export default function AdminDashboard() {
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {data.orders
-                    .filter(o => ['Cooking_Done', 'Dispatched', 'Delivered'].includes(o.Status))
+                    .filter(o => ['Cooking_Done', 'Dispatched', 'Delivered'].includes(o.Status || o.status))
                     .map(order => {
-                      const user = data.users.find(u => u.Name === order.CustomerName);
+                      const id = order.OrderID || order.orderid;
+                      const orderNum = order.Order_Number || order.order_number;
+                      const customerName = order.CustomerName || order.customername;
+                      const status = order.Status || order.status;
+                      const user = data.users.find(u => (u.Name || u.name) === customerName);
                       return (
-                        <tr key={order.OrderID} className="hover:bg-gray-50">
-                          <td className="p-4 font-bold text-blue-600">{order.Order_Number}</td>
+                        <tr key={id} className="hover:bg-gray-50">
+                          <td className="p-4 font-bold text-blue-600">{orderNum}</td>
                           <td className="p-4">
-                            <p className="font-bold">{order.CustomerName}</p>
+                            <p className="font-bold">{customerName}</p>
                           </td>
                           <td className="p-4 text-xs text-gray-600">
-                            {user ? `${user.House || ''} ${user.Road || ''} ${user.Street || ''}`.trim() || 'Address on file' : 'Address Unavailable'}
+                            {user ? `${user.House || user.house || ''} ${user.Road || user.road || ''} ${user.Street || user.street || ''}`.trim() || 'Address on file' : 'Address Unavailable'}
                           </td>
                           <td className="p-4">
-                            <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${getStatusColor(order.Status)}`}>
-                              {order.Status.replace('_', ' ')}
+                            <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${getStatusColor(status)}`}>
+                              {status.replace('_', ' ')}
                             </span>
                           </td>
                         </tr>
                       );
                     })}
-                  {data.orders.filter(o => ['Cooking_Done', 'Dispatched', 'Delivered'].includes(o.Status)).length === 0 && (
+                  {data.orders.filter(o => ['Cooking_Done', 'Dispatched', 'Delivered'].includes(o.Status || o.status)).length === 0 && (
                     <tr><td colSpan="4" className="p-12 text-center text-gray-400 font-bold">No active deliveries tracked yet.</td></tr>
                   )}
                 </tbody>
@@ -379,8 +407,8 @@ export default function AdminDashboard() {
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
             <div className="p-6 border-b flex justify-between items-center bg-gray-50">
               <div>
-                <h3 className="font-black text-2xl text-gray-900">Admin Inspect: #{selectedOrder.Order_Number}</h3>
-                <span className={`inline-block mt-2 px-3 py-1 rounded-full text-xs font-bold ${getStatusColor(selectedOrder.Status)}`}>{selectedOrder.Status.replace('_', ' ')}</span>
+                <h3 className="font-black text-2xl text-gray-900">Admin Inspect: #{selectedOrder.Order_Number || selectedOrder.order_number}</h3>
+                <span className={`inline-block mt-2 px-3 py-1 rounded-full text-xs font-bold ${getStatusColor(selectedOrder.Status || selectedOrder.status)}`}>{(selectedOrder.Status || selectedOrder.status || '').replace('_', ' ')}</span>
               </div>
               <button onClick={() => setSelectedOrder(null)} className="text-gray-400 hover:text-red-500 text-3xl font-bold">&times;</button>
             </div>
@@ -412,10 +440,10 @@ export default function AdminDashboard() {
                       {(orderDetails.items || []).map((item, idx) => (
                         <div key={idx} className="flex justify-between items-center p-3 bg-white border rounded-xl">
                           <div className="flex items-center gap-3">
-                            <span className="font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-lg">{item.Quantity}x</span>
-                            <span className="font-bold">{item.Name}</span>
+                            <span className="font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-lg">{item.Quantity || item.quantity}x</span>
+                            <span className="font-bold">{item.Name || item.name}</span>
                           </div>
-                          <span className="font-black">৳{item.Subtotal}</span>
+                          <span className="font-black">৳{item.Subtotal || item.subtotal}</span>
                         </div>
                       ))}
                       {(!orderDetails.items || orderDetails.items.length === 0) && (
@@ -429,8 +457,8 @@ export default function AdminDashboard() {
                     <div className="space-y-2 pl-4 border-l-2 border-blue-200">
                       {(orderDetails.timeline || []).map((event, idx) => (
                         <div key={idx} className="relative before:absolute before:-left-[21px] before:top-1.5 before:w-3 before:h-3 before:bg-blue-500 before:rounded-full before:border-2 before:border-white">
-                          <span className="font-bold text-gray-800 mr-3">{event.Status.replace('_', ' ')}</span>
-                          <span suppressHydrationWarning className="text-xs text-gray-500 font-mono">{new Date(event.Status_Date).toLocaleString()}</span>
+                          <span className="font-bold text-gray-800 mr-3">{(event.Status || event.status || '').replace('_', ' ')}</span>
+                          <span suppressHydrationWarning className="text-xs text-gray-500 font-mono">{new Date(event.Status_Date || event.status_date).toLocaleString()}</span>
                         </div>
                       ))}
                     </div>
@@ -441,7 +469,7 @@ export default function AdminDashboard() {
             
             <div className="p-6 bg-gray-50 border-t flex justify-between items-center">
                <span className="font-bold text-gray-500 uppercase tracking-wider text-sm">Total Transaction</span>
-               <span className="font-black text-3xl text-blue-600">৳{selectedOrder.Total_Price}</span>
+               <span className="font-black text-3xl text-blue-600">৳{selectedOrder.Total_Price || selectedOrder.total_price}</span>
             </div>
           </div>
         </div>
@@ -454,7 +482,7 @@ export default function AdminDashboard() {
             <div className="p-6 border-b flex justify-between items-center bg-gray-50">
               <div>
                 <h3 className="font-black text-2xl text-gray-900">User Profile</h3>
-                <span className="inline-block mt-2 px-3 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800">{selectedUser.Role}</span>
+                <span className="inline-block mt-2 px-3 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800">{selectedUser.Role || selectedUser.role}</span>
               </div>
               <button onClick={() => setSelectedUser(null)} className="text-gray-400 hover:text-red-500 text-3xl font-bold">&times;</button>
             </div>
@@ -462,15 +490,15 @@ export default function AdminDashboard() {
             <div className="p-6 overflow-y-auto space-y-6">
               <div className="bg-gray-50 p-4 rounded-xl border">
                 <h4 className="font-bold text-gray-500 text-xs uppercase mb-2">Personal Info</h4>
-                <p className="font-bold text-gray-900 text-lg">{selectedUser.Name}</p>
-                <p className="text-gray-600 text-sm mt-1">Email: {selectedUser.Email}</p>
-                <p className="text-gray-600 text-sm">Phone: {selectedUser.Phone || 'N/A'}</p>
+                <p className="font-bold text-gray-900 text-lg">{selectedUser.Name || selectedUser.name}</p>
+                <p className="text-gray-600 text-sm mt-1">Email: {selectedUser.Email || selectedUser.email}</p>
+                <p className="text-gray-600 text-sm">Phone: {selectedUser.Phone || selectedUser.phone || 'N/A'}</p>
               </div>
               <div className="bg-gray-50 p-4 rounded-xl border">
                 <h4 className="font-bold text-gray-500 text-xs uppercase mb-2">Delivery Address</h4>
-                <p className="text-gray-800 font-medium text-sm">House: {selectedUser.House || 'N/A'}</p>
-                <p className="text-gray-800 font-medium text-sm">Road: {selectedUser.Road || 'N/A'}</p>
-                <p className="text-gray-800 font-medium text-sm">Street/Area: {selectedUser.Street || 'N/A'}</p>
+                <p className="text-gray-800 font-medium text-sm">House: {selectedUser.House || selectedUser.house || 'N/A'}</p>
+                <p className="text-gray-800 font-medium text-sm">Road: {selectedUser.Road || selectedUser.road || 'N/A'}</p>
+                <p className="text-gray-800 font-medium text-sm">Street/Area: {selectedUser.Street || selectedUser.street || 'N/A'}</p>
               </div>
             </div>
           </div>

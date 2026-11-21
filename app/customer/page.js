@@ -87,7 +87,7 @@ export default function Home() {
     const loadPendingReviews = () => {
       if (!showReviewModal) {
         const snoozedUntil = localStorage.getItem('reviewSnoozedUntil');
-        if (snoozedUntil && Date.now() < parseInt(snoozedUntil)) {
+        if (snoozedUntil && Date.now() < parseInt(snoozedUntil, 10)) {
           return;
         }
         
@@ -110,19 +110,20 @@ export default function Home() {
 
   // Cart Functions
   const addToCart = (item) => {
+    const itemId = item.MenuItemID || item.menuitemid;
     setCart((prev) => {
-      const existing = prev.find(i => i.MenuItemID === item.MenuItemID);
+      const existing = prev.find(i => (i.MenuItemID === itemId || i.menuitemid === itemId));
       if (existing) {
-        return prev.map(i => i.MenuItemID === item.MenuItemID ? { ...i, Quantity: i.Quantity + 1 } : i);
+        return prev.map(i => (i.MenuItemID === itemId || i.menuitemid === itemId) ? { ...i, Quantity: i.Quantity + 1 } : i);
       }
       return [...prev, { ...item, Quantity: 1 }];
     });
     setIsCartOpen(true);
   };
-  const increment = (id) => setCart(prev => prev.map(i => i.MenuItemID === id ? { ...i, Quantity: i.Quantity + 1 } : i));
-  const decrement = (id) => setCart(prev => prev.map(i => i.MenuItemID === id ? { ...i, Quantity: Math.max(1, i.Quantity - 1) } : i));
-  const remove = (id) => setCart(prev => prev.filter(i => i.MenuItemID !== id));
-  const totalPrice = cart.reduce((sum, item) => sum + (parseFloat(item.Price) * item.Quantity), 0);
+  const increment = (id) => setCart(prev => prev.map(i => (i.MenuItemID === id || i.menuitemid === id) ? { ...i, Quantity: i.Quantity + 1 } : i));
+  const decrement = (id) => setCart(prev => prev.map(i => (i.MenuItemID === id || i.menuitemid === id) ? { ...i, Quantity: Math.max(1, i.Quantity - 1) } : i));
+  const remove = (id) => setCart(prev => prev.filter(i => (i.MenuItemID !== id && i.menuitemid !== id)));
+  const totalPrice = cart.reduce((sum, item) => sum + (parseFloat(item.Price || item.price || 0) * item.Quantity), 0);
 
   // Checkout & Payment
   const triggerPayment = () => {
@@ -138,7 +139,7 @@ export default function Home() {
       customerId: customerId,
       totalPrice: totalPrice,
       paymentMethod: paymentMethod,
-      items: cart.map(item => ({ menuItemId: item.MenuItemID, quantity: item.Quantity }))
+      items: cart.map(item => ({ menuItemId: item.MenuItemID || item.menuitemid, quantity: item.Quantity }))
     };
     try {
       const res = await fetch('/api/orders', {
@@ -168,7 +169,14 @@ export default function Home() {
       const res = await fetch('/api/customer/profile', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ customerId, ...profile, name: profile.Name, phone: profile.Phone, street: profile.Street, road: profile.Road, house: profile.House })
+        body: JSON.stringify({
+          customerId,
+          name: profile.Name || profile.name,
+          phone: profile.Phone || profile.phone,
+          street: profile.Street || profile.street,
+          road: profile.Road || profile.road,
+          house: profile.House || profile.house
+        })
       });
       const data = await res.json();
       if (data.success) alert("Profile updated successfully!");
@@ -195,8 +203,8 @@ export default function Home() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           customerId,
-          menuItemId: currentReviewItem.MenuItemID,
-          orderId: currentReviewItem.OrderID,
+          menuItemId: currentReviewItem.MenuItemID || currentReviewItem.menuitemid,
+          orderId: currentReviewItem.OrderID || currentReviewItem.orderid,
           rating: reviewData.rating,
           comment: reviewData.comment
         })
@@ -226,7 +234,8 @@ export default function Home() {
     setSelectedOrder(order);
     setOrderDetails(null);
     try {
-      const res = await fetch(`/api/orders/${order.OrderID}`);
+      const orderId = order.OrderID || order.orderid;
+      const res = await fetch(`/api/orders/${orderId}`);
       const data = await res.json();
       if (data.success) setOrderDetails(data);
     } catch (e) {
@@ -301,31 +310,39 @@ export default function Home() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {menuItems.map((item) => (
-                <div key={item.MenuItemID} className="border border-gray-200 p-5 rounded-2xl shadow-sm relative bg-white hover:shadow-md transition">
-                  <span className="absolute top-3 right-3 font-mono text-xs bg-gray-100 px-2 py-1 rounded-md text-gray-600 font-bold">
-                    {(item.Item_Type === 'Premium' ? 'P' : 'R') + String(item.MenuItemID).padStart(3, '0')}
-                  </span>
-                  <div className="text-4xl mb-4">{item.Item_Type === 'Premium' ? '⭐' : '🍲'}</div>
-                  <h2 className="text-xl font-bold text-gray-800">{item.Name}</h2>
-                  <div className="flex items-center gap-2 mt-1 mb-2">
-                     <span className="text-yellow-500 font-bold">⭐ {parseFloat(item.AvgRating || 0).toFixed(1)}</span>
-                     <span className="text-xs text-gray-400 font-bold">({item.ReviewCount || 0} reviews)</span>
+              {menuItems.map((item) => {
+                const id = item.MenuItemID || item.menuitemid;
+                const name = item.Name || item.name;
+                const price = item.Price || item.price;
+                const type = item.Item_Type || item.item_type;
+                const rating = item.AvgRating || item.avgrating || 0;
+                const count = item.ReviewCount || item.reviewcount || 0;
+                return (
+                  <div key={id} className="border border-gray-200 p-5 rounded-2xl shadow-sm relative bg-white hover:shadow-md transition">
+                    <span className="absolute top-3 right-3 font-mono text-xs bg-gray-100 px-2 py-1 rounded-md text-gray-600 font-bold">
+                      {(type === 'Premium' ? 'P' : 'R') + String(id).padStart(3, '0')}
+                    </span>
+                    <div className="text-4xl mb-4">{type === 'Premium' ? '⭐' : '🍲'}</div>
+                    <h2 className="text-xl font-bold text-gray-800">{name}</h2>
+                    <div className="flex items-center gap-2 mt-1 mb-2">
+                       <span className="text-yellow-500 font-bold">⭐ {parseFloat(rating).toFixed(1)}</span>
+                       <span className="text-xs text-gray-400 font-bold">({count} reviews)</span>
+                    </div>
+                    <span className={`inline-block mb-4 text-xs font-bold px-2 py-1 rounded ${type === 'Premium' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-600'}`}>
+                      {type}
+                    </span>
+                    <div className="flex justify-between items-center mt-auto pt-4 border-t border-gray-100">
+                      <span className="text-2xl font-black text-gray-900">৳{price}</span>
+                      <button
+                        onClick={() => addToCart(item)}
+                        className="bg-blue-600 text-white font-bold py-2 px-4 rounded-xl hover:bg-blue-700 transition transform hover:-translate-y-0.5"
+                      >
+                        Add
+                      </button>
+                    </div>
                   </div>
-                  <span className={`inline-block mb-4 text-xs font-bold px-2 py-1 rounded ${item.Item_Type === 'Premium' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-600'}`}>
-                    {item.Item_Type}
-                  </span>
-                  <div className="flex justify-between items-center mt-auto pt-4 border-t border-gray-100">
-                    <span className="text-2xl font-black text-gray-900">৳{item.Price}</span>
-                    <button
-                      onClick={() => addToCart(item)}
-                      className="bg-blue-600 text-white font-bold py-2 px-4 rounded-xl hover:bg-blue-700 transition transform hover:-translate-y-0.5"
-                    >
-                      Add
-                    </button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </>
@@ -339,33 +356,40 @@ export default function Home() {
               You haven&apos;t placed any orders yet.
             </div>
           ) : (
-            orderHistory.map(order => (
-              <div key={order.OrderID} className="bg-white border border-gray-200 p-6 rounded-2xl shadow-sm flex flex-col md:flex-row justify-between items-center gap-6 hover:shadow-md transition">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-1">
-                    <h3 className="font-black text-gray-900 text-xl">Order #{order.Order_Number}</h3>
-                    <span className={`px-3 py-1 rounded-full text-xs font-bold border ${getStatusColor(order.Status)}`}>
-                      {order.Status.replace('_', ' ')}
-                    </span>
+            orderHistory.map(order => {
+              const id = order.OrderID || order.orderid;
+              const orderNum = order.Order_Number || order.order_number;
+              const status = order.Status || order.status || 'Pending';
+              const orderDate = order.Order_Date || order.order_date;
+              const totalPrice = order.Total_Price || order.total_price;
+              return (
+                <div key={id} className="bg-white border border-gray-200 p-6 rounded-2xl shadow-sm flex flex-col md:flex-row justify-between items-center gap-6 hover:shadow-md transition">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-1">
+                      <h3 className="font-black text-gray-900 text-xl">Order #{orderNum}</h3>
+                      <span className={`px-3 py-1 rounded-full text-xs font-bold border ${getStatusColor(status)}`}>
+                        {status.replace('_', ' ')}
+                      </span>
+                    </div>
+                    <p suppressHydrationWarning className="text-sm text-gray-500 font-medium">
+                      Placed on: {new Date(orderDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute:'2-digit' })}
+                    </p>
                   </div>
-                  <p suppressHydrationWarning className="text-sm text-gray-500 font-medium">
-                    Placed on: {new Date(order.Order_Date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute:'2-digit' })}
-                  </p>
-                </div>
-                <div className="flex items-center gap-6 w-full md:w-auto justify-between md:justify-end">
-                  <div className="text-right">
-                    <p className="text-xs text-gray-400 font-bold uppercase tracking-wider mb-0.5">Total Paid</p>
-                    <p className="font-black text-gray-900 text-2xl">৳{order.Total_Price}</p>
+                  <div className="flex items-center gap-6 w-full md:w-auto justify-between md:justify-end">
+                    <div className="text-right">
+                      <p className="text-xs text-gray-400 font-bold uppercase tracking-wider mb-0.5">Total Paid</p>
+                      <p className="font-black text-gray-900 text-2xl">৳{totalPrice}</p>
+                    </div>
+                    <button 
+                      onClick={() => viewOrderDetails(order)}
+                      className="bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2 rounded-xl font-bold transition"
+                    >
+                      Details
+                    </button>
                   </div>
-                  <button 
-                    onClick={() => viewOrderDetails(order)}
-                    className="bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2 rounded-xl font-bold transition"
-                  >
-                    Details
-                  </button>
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       )}
@@ -378,11 +402,11 @@ export default function Home() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-bold text-gray-700 mb-2">Full Name</label>
-                <input required type="text" value={profile.Name || ''} onChange={e => setProfile({...profile, Name: e.target.value})} className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition" />
+                <input required type="text" value={profile.Name || profile.name || ''} onChange={e => setProfile({...profile, Name: e.target.value, name: e.target.value})} className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition" />
               </div>
               <div>
                 <label className="block text-sm font-bold text-gray-700 mb-2">Phone Number</label>
-                <input required type="text" value={profile.Phone || ''} onChange={e => setProfile({...profile, Phone: e.target.value})} className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition" />
+                <input required type="text" value={profile.Phone || profile.phone || ''} onChange={e => setProfile({...profile, Phone: e.target.value, phone: e.target.value})} className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition" />
               </div>
             </div>
             <div className="border-t border-gray-100 pt-6">
@@ -390,15 +414,15 @@ export default function Home() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-2">House</label>
-                  <input type="text" value={profile.House || ''} onChange={e => setProfile({...profile, House: e.target.value})} placeholder="e.g. 42B" className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition" />
+                  <input type="text" value={profile.House || profile.house || ''} onChange={e => setProfile({...profile, House: e.target.value, house: e.target.value})} placeholder="e.g. 42B" className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition" />
                 </div>
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-2">Road</label>
-                  <input type="text" value={profile.Road || ''} onChange={e => setProfile({...profile, Road: e.target.value})} placeholder="e.g. 7" className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition" />
+                  <input type="text" value={profile.Road || profile.road || ''} onChange={e => setProfile({...profile, Road: e.target.value, road: e.target.value})} placeholder="e.g. 7" className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition" />
                 </div>
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-2">Street/Area</label>
-                  <input type="text" value={profile.Street || ''} onChange={e => setProfile({...profile, Street: e.target.value})} placeholder="e.g. Mohakhali" className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition" />
+                  <input type="text" value={profile.Street || profile.street || ''} onChange={e => setProfile({...profile, Street: e.target.value, street: e.target.value})} placeholder="e.g. Mohakhali" className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition" />
                 </div>
               </div>
             </div>
@@ -421,18 +445,26 @@ export default function Home() {
                You haven&apos;t left any reviews yet. Complete an order to leave a review!
              </div>
           ) : (
-             myReviews.map(review => (
-               <div key={review.ReviewID} className="bg-white border border-gray-200 p-6 rounded-2xl shadow-sm flex flex-col md:flex-row gap-6 hover:shadow-md transition">
-                 <div className="flex-1">
-                   <div className="flex items-center gap-3 mb-2">
-                     <h3 className="font-bold text-gray-900 text-lg">{review.Name}</h3>
-                     <span className="text-yellow-500 font-black tracking-widest">{'⭐'.repeat(review.Rating)}</span>
+             myReviews.map(review => {
+               const id = review.ReviewID || review.reviewid;
+               const name = review.Name || review.name;
+               const rating = review.Rating || review.rating || 5;
+               const comment = review.Comment || review.comment;
+               const orderNum = review.Order_Number || review.order_number;
+               const createdAt = review.CreatedAt || review.createdat;
+               return (
+                 <div key={id} className="bg-white border border-gray-200 p-6 rounded-2xl shadow-sm flex flex-col md:flex-row gap-6 hover:shadow-md transition">
+                   <div className="flex-1">
+                     <div className="flex items-center gap-3 mb-2">
+                       <h3 className="font-bold text-gray-900 text-lg">{name}</h3>
+                       <span className="text-yellow-500 font-black tracking-widest">{'⭐'.repeat(rating)}</span>
+                     </div>
+                     <p className="text-sm text-gray-600 italic mb-3 bg-gray-50 p-3 rounded-lg border border-gray-100">&ldquo;{comment || 'No comment provided.'}&rdquo;</p>
+                     <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">From Order #{orderNum} • {new Date(createdAt).toLocaleDateString()}</p>
                    </div>
-                   <p className="text-sm text-gray-600 italic mb-3 bg-gray-50 p-3 rounded-lg border border-gray-100">&ldquo;{review.Comment || 'No comment provided.'}&rdquo;</p>
-                   <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">From Order #{review.Order_Number} • {new Date(review.CreatedAt).toLocaleDateString()}</p>
                  </div>
-               </div>
-             ))
+               );
+             })
           )}
         </div>
       )}
@@ -452,8 +484,8 @@ export default function Home() {
               <div className="flex items-center gap-4 mb-6 p-4 bg-gray-50 rounded-2xl border border-gray-100">
                  <div className="w-16 h-16 bg-white rounded-xl shadow-sm border border-gray-100 flex items-center justify-center text-3xl">🍲</div>
                  <div>
-                   <h4 className="font-bold text-gray-900 text-lg">{currentReviewItem.Name}</h4>
-                   <p className="text-xs font-bold text-blue-500 uppercase">Order Ref #{currentReviewItem.OrderID}</p>
+                   <h4 className="font-bold text-gray-900 text-lg">{currentReviewItem.Name || currentReviewItem.name}</h4>
+                   <p className="text-xs font-bold text-blue-500 uppercase">Order Ref #{currentReviewItem.OrderID || currentReviewItem.orderid}</p>
                  </div>
               </div>
 
@@ -504,9 +536,9 @@ export default function Home() {
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
             <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
               <div>
-                <h3 className="font-black text-2xl text-gray-900">Order #{selectedOrder.Order_Number}</h3>
-                <span className={`inline-block mt-2 px-3 py-1 rounded-full text-xs font-bold border ${getStatusColor(selectedOrder.Status)}`}>
-                  {selectedOrder.Status.replace('_', ' ')}
+                <h3 className="font-black text-2xl text-gray-900">Order #{selectedOrder.Order_Number || selectedOrder.order_number}</h3>
+                <span className={`inline-block mt-2 px-3 py-1 rounded-full text-xs font-bold border ${getStatusColor(selectedOrder.Status || selectedOrder.status)}`}>
+                  {(selectedOrder.Status || selectedOrder.status || '').replace('_', ' ')}
                 </span>
               </div>
               <button onClick={() => setSelectedOrder(null)} className="text-gray-400 hover:text-red-500 text-3xl font-bold transition">&times;</button>
@@ -524,10 +556,10 @@ export default function Home() {
                       {(orderDetails.items || []).map((item, idx) => (
                         <div key={idx} className="flex justify-between items-center p-3 bg-gray-50 rounded-xl border border-gray-100">
                           <div className="flex items-center gap-3">
-                            <span className="font-bold text-blue-600 bg-blue-100 w-8 h-8 flex items-center justify-center rounded-lg">{item.Quantity}x</span>
-                            <span className="font-bold text-gray-800">{item.Name}</span>
+                            <span className="font-bold text-blue-600 bg-blue-100 w-8 h-8 flex items-center justify-center rounded-lg">{item.Quantity || item.quantity}x</span>
+                            <span className="font-bold text-gray-800">{item.Name || item.name}</span>
                           </div>
-                          <span className="font-black text-gray-900">৳{item.Subtotal}</span>
+                          <span className="font-black text-gray-900">৳{item.Subtotal || item.subtotal}</span>
                         </div>
                       ))}
                     </div>
@@ -541,9 +573,9 @@ export default function Home() {
                         <div key={idx} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
                           <div className="flex items-center justify-center w-6 h-6 rounded-full border-4 border-white bg-blue-500 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2"></div>
                           <div className="w-[calc(100%-3rem)] md:w-[calc(50%-1.5rem)] p-3 rounded-lg border border-gray-100 bg-white shadow-sm">
-                            <div className="font-bold text-gray-800 text-sm mb-1">{event.Status.replace('_', ' ')}</div>
+                            <div className="font-bold text-gray-800 text-sm mb-1">{(event.Status || event.status || '').replace('_', ' ')}</div>
                             <time suppressHydrationWarning className="block text-xs font-medium text-gray-500">
-                              {new Date(event.Status_Date).toLocaleTimeString('en-GB', { hour: '2-digit', minute:'2-digit' })} - {new Date(event.Status_Date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                              {new Date(event.Status_Date || event.status_date).toLocaleTimeString('en-GB', { hour: '2-digit', minute:'2-digit' })} - {new Date(event.Status_Date || event.status_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
                             </time>
                           </div>
                         </div>
@@ -556,7 +588,7 @@ export default function Home() {
             
             <div className="p-6 bg-gray-50 border-t border-gray-100 flex justify-between items-center">
                <span className="font-bold text-gray-500 uppercase tracking-wider text-sm">Total Paid</span>
-               <span className="font-black text-3xl text-blue-600">৳{selectedOrder.Total_Price}</span>
+               <span className="font-black text-3xl text-blue-600">৳{selectedOrder.Total_Price || selectedOrder.total_price}</span>
             </div>
           </div>
         </div>
@@ -575,20 +607,25 @@ export default function Home() {
           {cart.length === 0 ? (
              <div className="text-center text-gray-500 mt-10 font-medium">Your cart is empty.</div>
           ) : (
-            cart.map(item => (
-              <div key={item.MenuItemID} className="flex gap-4 items-center bg-white border border-gray-100 p-4 rounded-xl shadow-sm">
-                <div className="flex-1">
-                  <h3 className="font-bold text-gray-800 text-sm leading-tight mb-1">{item.Name}</h3>
-                  <div className="text-blue-600 font-black text-sm">৳{item.Price}</div>
-                  <div className="flex items-center gap-3 mt-2 bg-gray-50 w-fit rounded-lg border border-gray-200">
-                    <button onClick={() => decrement(item.MenuItemID)} className="w-8 h-8 flex items-center justify-center hover:bg-gray-200 text-gray-600 font-bold transition rounded-l-lg">-</button>
-                    <span className="font-bold text-gray-800 w-4 text-center text-sm">{item.Quantity}</span>
-                    <button onClick={() => increment(item.MenuItemID)} className="w-8 h-8 flex items-center justify-center hover:bg-gray-200 text-gray-600 font-bold transition rounded-r-lg">+</button>
+            cart.map(item => {
+              const id = item.MenuItemID || item.menuitemid;
+              const name = item.Name || item.name;
+              const price = item.Price || item.price;
+              return (
+                <div key={id} className="flex gap-4 items-center bg-white border border-gray-100 p-4 rounded-xl shadow-sm">
+                  <div className="flex-1">
+                    <h3 className="font-bold text-gray-800 text-sm leading-tight mb-1">{name}</h3>
+                    <div className="text-blue-600 font-black text-sm">৳{price}</div>
+                    <div className="flex items-center gap-3 mt-2 bg-gray-50 w-fit rounded-lg border border-gray-200">
+                      <button onClick={() => decrement(id)} className="w-8 h-8 flex items-center justify-center hover:bg-gray-200 text-gray-600 font-bold transition rounded-l-lg">-</button>
+                      <span className="font-bold text-gray-800 w-4 text-center text-sm">{item.Quantity}</span>
+                      <button onClick={() => increment(id)} className="w-8 h-8 flex items-center justify-center hover:bg-gray-200 text-gray-600 font-bold transition rounded-r-lg">+</button>
+                    </div>
                   </div>
+                  <button onClick={() => remove(id)} className="text-red-400 hover:text-red-600 p-2 transition bg-red-50 hover:bg-red-100 rounded-lg">✕</button>
                 </div>
-                <button onClick={() => remove(item.MenuItemID)} className="text-red-400 hover:text-red-600 p-2 transition bg-red-50 hover:bg-red-100 rounded-lg">✕</button>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
         <div className="p-6 border-t bg-white shadow-[0_-4px_10px_-1px_rgba(0,0,0,0.05)]">

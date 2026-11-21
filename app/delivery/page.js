@@ -92,7 +92,8 @@ export default function DeliveryDashboard() {
     return null;
   };
 
-  const isOccupied = riders.find(r => r.CustomerID === riderId)?.Status === 'Occupied';
+  const isOccupied = riders.find(r => (r.CustomerID === riderId || r.customerid === riderId))?.Status === 'Occupied' ||
+                     riders.find(r => (r.CustomerID === riderId || r.customerid === riderId))?.status === 'Occupied';
 
   return (
     <main className="min-h-screen bg-gray-50 font-sans pb-20">
@@ -114,12 +115,17 @@ export default function DeliveryDashboard() {
             {riders.length === 0 ? (
               <span className="text-xs font-bold text-gray-400">No riders registered</span>
             ) : (
-              riders.map(rider => (
-                <div key={rider.CustomerID} className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-full border border-gray-100 shadow-sm hover:shadow transition" title={rider.Status === 'Free' ? 'Available' : 'On Delivery'}>
-                  <span className={`w-3 h-3 rounded-full shadow-sm ${rider.Status === 'Free' ? 'bg-green-500 shadow-green-200 animate-pulse' : 'bg-red-500 shadow-red-200'}`}></span>
-                  <span className="text-xs font-bold text-gray-700">{rider.Name.split(' ')[0]}</span>
-                </div>
-              ))
+              riders.map(rider => {
+                const id = rider.CustomerID || rider.customerid;
+                const name = rider.Name || rider.name || '';
+                const status = rider.Status || rider.status;
+                return (
+                  <div key={id} className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-full border border-gray-100 shadow-sm hover:shadow transition" title={status === 'Free' ? 'Available' : 'On Delivery'}>
+                    <span className={`w-3 h-3 rounded-full shadow-sm ${status === 'Free' ? 'bg-green-500 shadow-green-200 animate-pulse' : 'bg-red-500 shadow-red-200'}`}></span>
+                    <span className="text-xs font-bold text-gray-700">{name.split(' ')[0]}</span>
+                  </div>
+                );
+              })
             )}
           </div>
 
@@ -147,51 +153,61 @@ export default function DeliveryDashboard() {
             </div>
 
             <div className="space-y-4">
-              {tasks.map(order => (
-                <div key={order.OrderID} className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition group">
-                  <div className="flex justify-between items-start mb-4">
-                    <div>
-                      <span className="text-[10px] font-black text-blue-500 uppercase tracking-tighter mb-1 block">Order Ref</span>
-                      <h3 className="text-2xl font-black text-gray-900 leading-none">#{order.Order_Number}</h3>
-                    </div>
-                    {getStatusBadge(order.Status)}
-                  </div>
-
-                  <div className="space-y-4 mb-6">
-                    <div className="flex items-start gap-4">
-                      <div className="bg-gray-100 p-2.5 rounded-xl mt-1"><svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg></div>
+              {tasks.map(order => {
+                const id = order.OrderID || order.orderid;
+                const orderNum = order.Order_Number || order.order_number;
+                const status = order.Status || order.status;
+                const custName = order.CustomerName || order.customername;
+                const phone = order.Phone || order.phone;
+                const house = order.House || order.house;
+                const road = order.Road || order.road;
+                const street = order.Street || order.street;
+                return (
+                  <div key={id} className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition group">
+                    <div className="flex justify-between items-start mb-4">
                       <div>
-                        <p className="text-lg font-bold text-gray-900">{order.CustomerName}</p>
-                        <p className="text-sm font-bold text-blue-600">📞 {order.Phone}</p>
+                        <span className="text-[10px] font-black text-blue-500 uppercase tracking-tighter mb-1 block">Order Ref</span>
+                        <h3 className="text-2xl font-black text-gray-900 leading-none">#{orderNum}</h3>
+                      </div>
+                      {getStatusBadge(status)}
+                    </div>
+
+                    <div className="space-y-4 mb-6">
+                      <div className="flex items-start gap-4">
+                        <div className="bg-gray-100 p-2.5 rounded-xl mt-1"><svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg></div>
+                        <div>
+                          <p className="text-lg font-bold text-gray-900">{custName}</p>
+                          <p className="text-sm font-bold text-blue-600">📞 {phone}</p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-start gap-4">
+                        <div className="bg-gray-100 p-2.5 rounded-xl mt-1"><svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg></div>
+                        <div>
+                          <p className="text-sm font-bold text-gray-400 uppercase text-[10px] tracking-widest mb-1">Delivery Destination</p>
+                          <p className="text-gray-800 font-semibold leading-snug">
+                            {house && `House ${house}, `}
+                            {road && `Road ${road}, `}
+                            {street || 'Address on file'}
+                          </p>
+                        </div>
                       </div>
                     </div>
 
-                    <div className="flex items-start gap-4">
-                      <div className="bg-gray-100 p-2.5 rounded-xl mt-1"><svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg></div>
-                      <div>
-                        <p className="text-sm font-bold text-gray-400 uppercase text-[10px] tracking-widest mb-1">Delivery Destination</p>
-                        <p className="text-gray-800 font-semibold leading-snug">
-                          {order.House && `House ${order.House}, `}
-                          {order.Road && `Road ${order.Road}, `}
-                          {order.Street || 'Address on file'}
-                        </p>
-                      </div>
-                    </div>
+                    <button 
+                      onClick={() => updateStatus(id)}
+                      disabled={(status === 'Cooking_Done' && isOccupied) || updatingOrderId === id}
+                      className={`w-full py-4 rounded-2xl font-black text-lg shadow-lg transition transform active:scale-95 disabled:opacity-50 ${
+                        status === 'Cooking_Done' 
+                        ? isOccupied ? 'bg-gray-300 text-gray-500 cursor-not-allowed shadow-none' : 'bg-orange-500 hover:bg-orange-600 text-white shadow-orange-100' 
+                        : 'bg-green-600 hover:bg-green-700 text-white shadow-green-100'
+                      }`}
+                    >
+                      {updatingOrderId === id ? 'Updating...' : status === 'Cooking_Done' ? (isOccupied ? 'Finish current delivery first' : 'Confirm Pick Up') : 'Mark as Delivered'}
+                    </button>
                   </div>
-
-                  <button 
-                    onClick={() => updateStatus(order.OrderID)}
-                    disabled={(order.Status === 'Cooking_Done' && isOccupied) || updatingOrderId === order.OrderID}
-                    className={`w-full py-4 rounded-2xl font-black text-lg shadow-lg transition transform active:scale-95 disabled:opacity-50 ${
-                      order.Status === 'Cooking_Done' 
-                      ? isOccupied ? 'bg-gray-300 text-gray-500 cursor-not-allowed shadow-none' : 'bg-orange-500 hover:bg-orange-600 text-white shadow-orange-100' 
-                      : 'bg-green-600 hover:bg-green-700 text-white shadow-green-100'
-                    }`}
-                  >
-                    {updatingOrderId === order.OrderID ? 'Updating...' : order.Status === 'Cooking_Done' ? (isOccupied ? 'Finish current delivery first' : 'Confirm Pick Up') : 'Mark as Delivered'}
-                  </button>
-                </div>
-              ))}
+                );
+              })}
               
               {tasks.length === 0 && (
                 <div className="text-center py-24 bg-white rounded-3xl border-2 border-dashed border-gray-100">
