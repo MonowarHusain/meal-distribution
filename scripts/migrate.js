@@ -1,40 +1,42 @@
-import mysql from 'mysql2/promise';
-import 'dotenv/config'; // This loads your .env variables automatically
+import 'dotenv/config';
+import fs from 'fs';
+import pool from '../lib/db.js';
+import { initializeDatabase } from '../lib/schema.js';
+
+// Try native env loader if available
+try {
+  if (typeof process.loadEnvFile === 'function') {
+    if (fs.existsSync('.env.local')) process.loadEnvFile('.env.local');
+    else if (fs.existsSync('.env')) process.loadEnvFile('.env');
+  }
+} catch (e) {
+  // Ignore missing local env file
+}
 
 async function migrate() {
-  // Use ONLY the environment variable. 
-  // Removing the hardcoded fallback prevents the GitHub leak.
-  const dbUri = process.env.DATABASE_URL;
-
-  if (!dbUri) {
-    console.error("❌ Error: DATABASE_URL is not defined in your .env file.");
-    process.exit(1);
+  console.log('🔄 Starting Meal Distribution database migration & setup...');
+  
+  const hasDbConfig = !!(process.env.DATABASE_URL || process.env.MYSQL_URL || process.env.DB_HOST || process.env.MYSQL_HOST);
+  if (!hasDbConfig) {
+    console.warn('⚠️ Warning: No DATABASE_URL or DB_HOST found in environment. Using default fallback configuration.');
   }
 
-  const pool = mysql.createPool({ uri: dbUri });
-
-  console.log('Running Payment Table Migration...');
   try {
-    // This creates the Payment table for your 8-table normalized schema
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS Payment (
-          Payment_ID INT AUTO_INCREMENT PRIMARY KEY,
-          Order_ID INT NOT NULL,
-          Payment_Method ENUM('Cash On Delivery', 'bKash', 'Card') NOT NULL,
-          Payment_Status ENUM('Pending', 'Completed', 'Failed') DEFAULT 'Pending',
-          Payment_Date DATETIME DEFAULT CURRENT_TIMESTAMP,
-          Amount DECIMAL(10, 2) NOT NULL,
-          FOREIGN KEY (Order_ID) REFERENCES \`Order\`(OrderID) ON DELETE CASCADE
-      )
-    `);
-    console.log('✅ Payment table created successfully!');
-  } catch (e) {
-    console.log('❌ Payment table creation error:', e.message);
+    const result = await initializeDatabase(pool);
+    console.log('✅ Migration completed successfully!');
+    result.steps.forEach(step => console.log(`   - ${step}`));
+    console.log('\nDemo Logins Available:');
+    console.log('   👑 Admin:    admin@meal.com    / admin123');
+    console.log('   🍳 Kitchen:  kitchen@meal.com  / kitchen123');
+    console.log('   🛵 Delivery: delivery@meal.com / delivery123');
+    console.log('   🍱 Customer: customer@meal.com / customer123\n');
+  } catch (error) {
+    console.error('❌ Migration failed:', error.message);
+    process.exit(1);
+  } finally {
+    await pool.end();
   }
-
-  console.log('Migration complete.');
-  await pool.end(); // Properly close the connection
-  process.exit();
+  process.exit(0);
 }
 
 migrate();
