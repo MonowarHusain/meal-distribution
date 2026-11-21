@@ -57,37 +57,37 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="flex items-center justify-center min-h-screen bg-gray-50 px-4">
-      <div className="bg-white p-8 rounded-3xl shadow-xl w-full max-w-md border border-gray-100">
+    <main className="flex items-center justify-center min-h-screen bg-slate-50 px-4 py-8">
+      <div className="bg-white p-8 rounded-3xl shadow-xl w-full max-w-md border border-slate-200">
         <div className="text-center mb-8">
-          <div className="inline-block p-3 bg-blue-50 text-3xl rounded-2xl mb-3">🍱</div>
-          <h1 className="text-3xl font-black text-gray-900 tracking-tight">Meal System</h1>
-          <p className="text-gray-500 text-sm mt-1">Sign in to your role-based dashboard</p>
+          <div className="inline-block p-3 bg-blue-50 text-3xl rounded-2xl mb-3 shadow-sm border border-blue-100">🍱</div>
+          <h1 className="text-3xl font-black text-slate-900 tracking-tight">Meal System</h1>
+          <p className="text-slate-600 text-sm mt-1 font-medium">Sign in to your role-based dashboard</p>
         </div>
 
         {error && (
-          <div className="mb-5 p-3.5 bg-red-50 border border-red-200 text-red-600 rounded-xl text-sm font-semibold text-center">
+          <div className="mb-5 p-3.5 bg-red-50 border border-red-300 text-red-700 rounded-xl text-sm font-bold text-center">
             {error}
           </div>
         )}
 
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1.5">Email Address</label>
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">Email Address</label>
             <input 
               type="email" required
               value={email}
-              className="w-full p-3.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition text-gray-800"
+              className="w-full p-3.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-600 focus:border-blue-600 outline-none transition text-slate-900 placeholder:text-slate-400 font-medium"
               placeholder="e.g. admin@meal.com"
               onChange={(e) => setEmail(e.target.value)}
             />
           </div>
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1.5">Password</label>
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">Password</label>
             <input 
               type="password" required
               value={password}
-              className="w-full p-3.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition text-gray-800"
+              className="w-full p-3.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-600 focus:border-blue-600 outline-none transition text-slate-900 placeholder:text-slate-400 font-medium"
               placeholder="••••••••"
               onChange={(e) => setPassword(e.target.value)}
             />
@@ -95,32 +95,32 @@ export default function LoginPage() {
           <button 
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-3.5 rounded-xl shadow-lg shadow-blue-500/20 transition duration-200 disabled:opacity-50 mt-2"
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-3.5 rounded-xl shadow-lg shadow-blue-500/25 transition duration-200 disabled:opacity-50 mt-2 cursor-pointer"
           >
             {loading ? 'Signing In...' : 'Sign In'}
           </button>
         </form>
 
-        <div className="mt-6 pt-5 border-t border-gray-100">
-          <p className="text-xs font-bold uppercase tracking-wider text-gray-400 text-center mb-3">Quick Demo Logins</p>
+        <div className="mt-6 pt-5 border-t border-slate-200">
+          <p className="text-xs font-bold uppercase tracking-wider text-slate-600 text-center mb-3">Quick Demo Logins</p>
           <div className="grid grid-cols-2 gap-2 text-xs font-bold">
-            <button type="button" onClick={() => fillDemo('admin@meal.com', 'admin123')} className="p-2 bg-gray-50 hover:bg-blue-50 hover:text-blue-600 rounded-lg border border-gray-200 transition text-center">
+            <button type="button" onClick={() => fillDemo('admin@meal.com', 'admin123')} className="p-2.5 bg-slate-50 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300 text-slate-800 rounded-xl border border-slate-200 transition text-center shadow-xs cursor-pointer">
               👑 Admin
             </button>
-            <button type="button" onClick={() => fillDemo('kitchen@meal.com', 'kitchen123')} className="p-2 bg-gray-50 hover:bg-orange-50 hover:text-orange-600 rounded-lg border border-gray-200 transition text-center">
+            <button type="button" onClick={() => fillDemo('kitchen@meal.com', 'kitchen123')} className="p-2.5 bg-slate-50 hover:bg-orange-50 hover:text-orange-700 hover:border-orange-300 text-slate-800 rounded-xl border border-slate-200 transition text-center shadow-xs cursor-pointer">
               🍳 Kitchen
             </button>
-            <button type="button" onClick={() => fillDemo('delivery@meal.com', 'delivery123')} className="p-2 bg-gray-50 hover:bg-green-50 hover:text-green-600 rounded-lg border border-gray-200 transition text-center">
+            <button type="button" onClick={() => fillDemo('delivery@meal.com', 'delivery123')} className="p-2.5 bg-slate-50 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300 text-slate-800 rounded-xl border border-slate-200 transition text-center shadow-xs cursor-pointer">
               🛵 Delivery
             </button>
-            <button type="button" onClick={() => fillDemo('customer@meal.com', 'customer123')} className="p-2 bg-gray-50 hover:bg-purple-50 hover:text-purple-600 rounded-lg border border-gray-200 transition text-center">
+            <button type="button" onClick={() => fillDemo('customer@meal.com', 'customer123')} className="p-2.5 bg-slate-50 hover:bg-purple-50 hover:text-purple-700 hover:border-purple-300 text-slate-800 rounded-xl border border-slate-200 transition text-center shadow-xs cursor-pointer">
               🍱 Customer
             </button>
           </div>
         </div>
 
-        <div className="mt-5 text-center text-sm text-gray-500 font-medium">
-          Don&apos;t have an account? <Link href="/signup" className="text-blue-600 hover:underline font-bold">Create Account</Link>
+        <div className="mt-5 text-center text-sm text-slate-600 font-medium">
+          Don&apos;t have an account? <Link href="/signup" className="text-blue-600 hover:text-blue-700 hover:underline font-bold ml-1">Create Account</Link>
         </div>
       </div>
     </main>
