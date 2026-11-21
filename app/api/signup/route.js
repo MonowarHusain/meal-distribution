@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import bcrypt from 'bcryptjs';
 import pool from '@/lib/db';
 
 export async function POST(request) {
@@ -25,15 +26,18 @@ export async function POST(request) {
       return NextResponse.json({ success: false, message: 'An account with this email is already registered.' }, { status: 409 });
     }
 
+    // Secure password hashing with bcryptjs
+    const hashedPassword = await bcrypt.hash(String(password), 10);
+
     // Insert new customer using PostgreSQL RETURNING syntax
     const [rows] = await pool.query(
       `INSERT INTO "Customer" ("Name", "Email", "Password", "Phone", "Street", "Road", "House", "Role") 
        VALUES ($1, $2, $3, $4, $5, $6, $7, 'Customer')
-       RETURNING "CustomerID"`,
+       RETURNING "CustomerID", "Name", "Email", "Role"`,
       [
         trimmedName,
         trimmedEmail,
-        String(password),
+        hashedPassword,
         phone ? String(phone).trim() : '',
         street ? String(street).trim() : '',
         road ? String(road).trim() : '',
@@ -53,6 +57,9 @@ export async function POST(request) {
     );
   } catch (error) {
     console.error('Signup API Error:', error);
-    return NextResponse.json({ success: false, error: 'Registration failed', details: error.message }, { status: 500 });
+    return NextResponse.json(
+      { success: false, message: error.message || 'Registration failed', details: error.message },
+      { status: 500 }
+    );
   }
 }

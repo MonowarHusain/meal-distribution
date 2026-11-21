@@ -11,5 +11,13 @@ export async function POST() {
     maxAge: 0
   });
 
+  response.cookies.set({
+    name: 'userId',
+    value: '',
+    httpOnly: true,
+    path: '/',
+    maxAge: 0
+  });
+
   return response;
 }
